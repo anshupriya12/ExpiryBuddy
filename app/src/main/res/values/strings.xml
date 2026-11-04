@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Expiry Buddy</string>
+
+    <!-- Shared actions -->
+    <string name="nav_back">Back</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_add_item">Add item</string>
+    <string name="action_save">Save</string>
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_edit">Edit item</string>
+    <string name="action_delete">Delete item</string>
+    <string name="loading">Loading</string>
+
+    <!-- Categories -->
+    <string name="category_food">Food</string>
+    <string name="category_medication">Medication</string>
+    <string name="category_cosmetics">Cosmetics</string>
+    <string name="category_document">Document</string>
+    <string name="category_household">Household</string>
+    <string name="category_other">Other</string>
+
+    <!-- Reminders -->
+    <string name="reminder_none">No reminder</string>
+    <string name="reminder_on_day">On the expiry day</string>
+    <plurals name="reminder_days_before">
+        <item quantity="one">%d day before</item>
+        <item quantity="other">%d days before</item>
+    </plurals>
+
+    <!-- Home -->
+    <string name="home_title">Expiry Buddy</string>
+    <string name="home_empty_title">Nothing to track yet</string>
+    <string name="home_empty_body">Add something that expires, like food, medicine or a passport, and Expiry Buddy will keep an eye on it.</string>
+    <string name="home_empty_action">Add your first item</string>
+    <string name="home_error">Couldn\'t load your items.</string>
+    <string name="home_item_category_date">%1$s · %2$s</string>
+    <string name="home_item_description">%1$s, %2$s, %3$s, expiry date %4$s</string>
+    <string name="home_count_description">%1$d %2$s</string>
+    <string name="home_section_title">%1$s (%2$d)</string>
+
+    <!-- Expiry status -->
+    <string name="status_expired">Expired</string>
+    <string name="status_expiring_soon">Expiring soon</string>
+    <string name="status_upcoming">Upcoming</string>
+    <string name="status_expires_today">Expires today</string>
+    <string name="status_expires_tomorrow">Expires tomorrow</string>
+    <plurals name="status_expires_in_days">
+        <item quantity="one">Expires in %d day</item>
+        <item quantity="other">Expires in %d days</item>
+    </plurals>
+    <plurals name="status_expired_days_ago">
+        <item quantity="one">Expired %d day ago</item>
+        <item quantity="other">Expired %d days ago</item>
+    </plurals>
+
+    <!-- Search and filter -->
+    <string name="search_hint">Search items</string>
+    <string name="search_clear">Clear search</string>
+    <string name="filter_all">All</string>
+    <string name="filter_by_category">Filter by category</string>
+    <string name="no_results_title">No matching items</string>
+    <string name="no_results_body">Try a different search or category.</string>
+    <string name="no_results_action">Clear filters</string>
+
+    <!-- Add / edit -->
+    <string name="edit_title_add">Add item</string>
+    <string name="edit_title_edit">Edit item</string>
+    <string name="field_name">Name</string>
+    <string name="field_category">Category</string>
+    <string name="field_expiry_date">Expiry date</string>
+    <string name="field_expiry_date_hint">Choose a date</string>
+    <string name="field_expiry_date_pick">Choose expiry date</string>
+    <string name="field_notes">Notes (optional)</string>
+    <string name="field_reminder">Remind me</string>
+    <string name="error_name_blank">Enter a name for this item.</string>
+    <string name="error_date_missing">Choose the expiry date.</string>
+    <string name="edit_save_failed">Couldn\'t save this item. Please try again.</string>
+    <string name="edit_load_failed">Couldn\'t load this item.</string>
+    <string name="item_not_found">This item no longer exists.</string>
+
+    <!-- Details -->
+    <string name="details_title">Item details</string>
+    <string name="details_expiry_date">Expiry date</string>
+    <string name="details_category">Category</string>
+    <string name="details_reminder">Reminder</string>
+    <string name="details_notes">Notes</string>
+    <string name="details_no_notes">No notes</string>
+    <string name="details_added">Added</string>
+    <string name="details_load_failed">Couldn\'t load this item.</string>
+    <string name="delete_title">Delete this item?</string>
+    <string name="delete_message">\"%1$s\" will be removed from this device. This can\'t be undone.</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="delete_failed">Couldn\'t delete this item. Please try again.</string>
+
+    <!-- Notifications -->
+    <string name="channel_name">Expiry reminders</string>
+    <string name="channel_description">Reminders before your saved items expire</string>
+    <string name="notif_explain_title">Get reminders before items expire?</string>
+    <string name="notif_explain_body">Expiry Buddy can send you a notification before an item expires. That is the only thing it uses notifications for, and the app works fully without them.</string>
+    <string name="notif_explain_continue">Continue</string>
+    <string name="notif_explain_skip">Not now</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_notifications_title">Notifications</string>
+    <string name="settings_notifications_on">Notifications are on. You will get a reminder before items expire.</string>
+    <string name="settings_notifications_off">Notifications are off. You will not get reminders, but everything else works as normal.</string>
+    <string name="settings_allow_notifications">Allow notifications</string>
+    <string name="settings_open_system_settings">Open notification settings</string>
+    <string name="settings_about_title">About</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_reminder_time">Reminders arrive at %1$s on the day you choose.</string>
+    <string name="settings_privacy">Your items are stored only on this device. No account or internet connection is needed.</string>
+</resources>

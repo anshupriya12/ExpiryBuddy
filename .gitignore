@@ -1,0 +1,43 @@
+# Signing material and secrets: never commit
+/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.der
+*.crt
+.env
+.env.*
+secrets.properties
+google-services.json
+
+# Local machine configuration
+/local.properties
+.idea/
+*.iml
+.vscode/
+
+# Gradle / Kotlin / build output
+.gradle/
+.kotlin/
+/build/
+**/build/
+.externalNativeBuild/
+.cxx/
+/captures/
+
+# Release artifacts: attach to GitHub Releases instead of committing
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Logs, temp files, dumps, OS noise
+*.log
+*.hprof
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
