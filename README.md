@@ -4,10 +4,6 @@ Expiry Buddy helps you remember when things expire. Save an item with its expiry
 expired, expiring soon, or upcoming, and get a local reminder before it expires. Everything stays on
 the device and works offline. There is no account, backend, or third-party service.
 
-> Status: **Phase 6 of 6 (MVP complete)**. You can add, view, edit and delete items, see them grouped
-> as Expired, Expiring Soon and Upcoming with counts, search and filter by category, and get a local
-> reminder before an item expires.
-
 ## Reminders
 
 - Each item can have a reminder 0, 1, 3, 7 or 14 days before its expiry date, or none.
