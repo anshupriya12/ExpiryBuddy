@@ -67,6 +67,11 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    // Exported Room schemas become test assets so MigrationTestHelper can open the old database version.
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 // Export Room schemas so future migrations can be verified against them.
@@ -102,5 +107,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.work.testing)
+    // MigrationTestHelper: proves the version 1 -> 2 migration keeps existing items.
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.kotlinx.coroutines.test)
 }

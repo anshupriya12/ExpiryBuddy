@@ -1,81 +1,99 @@
 package com.expirybuddy.app.ui.screens.edit
 
 import android.Manifest
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.expirybuddy.app.ExpiryBuddyApp
 import com.expirybuddy.app.R
-import com.expirybuddy.app.domain.model.ItemCategory
-import com.expirybuddy.app.domain.model.ReminderOptions
 import com.expirybuddy.app.domain.validation.DateError
 import com.expirybuddy.app.domain.validation.NameError
 import com.expirybuddy.app.reminders.needsNotificationPermission
 import com.expirybuddy.app.ui.AppViewModelProvider
+import com.expirybuddy.app.ui.components.AddItemFormField
+import com.expirybuddy.app.ui.components.CategorySelector
+import com.expirybuddy.app.ui.components.DeleteConfirmationDialog
+import com.expirybuddy.app.ui.components.ExpiryDateSelector
 import com.expirybuddy.app.ui.components.LoadingState
 import com.expirybuddy.app.ui.components.MessageState
+import com.expirybuddy.app.ui.components.NeutralIconButton
+import com.expirybuddy.app.ui.components.PhotoPicker
+import com.expirybuddy.app.ui.components.PrimaryButton
+import com.expirybuddy.app.ui.components.ReminderSelector
 import com.expirybuddy.app.ui.components.ScreenScaffold
-import com.expirybuddy.app.ui.util.DatePickerMillis
-import com.expirybuddy.app.ui.util.categoryLabel
-import com.expirybuddy.app.ui.util.formatDate
-import com.expirybuddy.app.ui.util.reminderLabel
-import java.time.LocalDate
+import com.expirybuddy.app.ui.components.SecondaryButton
+import com.expirybuddy.app.ui.theme.Spacing
 
+/**
+ * The one form for adding and editing an item. Values live in the ViewModel, so rotating the phone or
+ * failing validation never clears what was typed.
+ *
+ * @param onSaved called once the item is saved; the argument is true when an existing item was edited.
+ * @param onDeleted called once an item was deleted from this screen.
+ */
 @Composable
 fun AddEditItemScreen(
     onNavigateBack: () -> Unit,
+    onSaved: (wasEditing: Boolean) -> Unit,
+    onDeleted: () -> Unit,
     viewModel: AddEditViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val notificationPrefs = remember { (context.applicationContext as ExpiryBuddyApp).container.notificationPrefs }
+    val container = remember { (context.applicationContext as ExpiryBuddyApp).container }
+    val notificationPrefs = container.notificationPrefs
+    val photoStorage = container.photoStorage
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
 
     // The result doesn't matter: with or without the permission, the item is saved next.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onNotificationExplanationHandled()
     }
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { viewModel.onPhotoPicked(it.toString()) }
+    }
+    // Saved, so the target survives the camera app forcing this process to restart on a low-memory phone.
+    var pendingCameraTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        val target = pendingCameraTarget
+        pendingCameraTarget = null
+        if (taken && target != null) viewModel.onPhotoPicked(target)
+    }
+
     val onSaveClick = {
         // Explain once, at the moment a reminder is actually being saved on Android 13+.
         viewModel.onSave(
@@ -84,7 +102,10 @@ fun AddEditItemScreen(
     }
 
     LaunchedEffect(state.saved) {
-        if (state.saved) onNavigateBack()
+        if (state.saved) onSaved(state.isEditing)
+    }
+    LaunchedEffect(state.deleted) {
+        if (state.deleted) onDeleted()
     }
 
     if (state.showNotificationExplanation) {
@@ -100,13 +121,33 @@ fun AddEditItemScreen(
         )
     }
 
+    if (showDeleteDialog) {
+        DeleteConfirmationDialog(
+            itemName = state.name,
+            onConfirm = {
+                showDeleteDialog = false
+                viewModel.onDelete()
+            },
+            onDismiss = { showDeleteDialog = false },
+        )
+    }
+
     val showForm = !state.isLoading && state.loadFailure == null
     ScreenScaffold(
         title = stringResource(if (state.isEditing) R.string.edit_title_edit else R.string.edit_title_add),
         // The whole screen sits above the keyboard, so the pinned Save bar stays visible while typing.
         modifier = Modifier.imePadding(),
         onNavigateBack = onNavigateBack,
-        bottomBar = { if (showForm) SaveBar(isSaving = state.isSaving, onClick = onSaveClick) },
+        bottomBar = {
+            if (showForm) {
+                SaveBar(
+                    isEditing = state.isEditing,
+                    busy = state.isSaving || state.isDeleting || state.isPhotoBusy,
+                    onSave = onSaveClick,
+                    onDelete = { showDeleteDialog = true },
+                )
+            }
+        },
     ) { padding ->
         val contentModifier = Modifier.padding(padding)
         when {
@@ -117,7 +158,21 @@ fun AddEditItemScreen(
                 ),
                 modifier = contentModifier,
             )
-            else -> ItemForm(state, viewModel, onSaveClick, contentModifier)
+            else -> ItemForm(
+                state = state,
+                viewModel = viewModel,
+                canTakePhoto = remember { photoStorage.hasCamera() },
+                onTakePhoto = {
+                    photoStorage.createCameraTarget()?.let { target ->
+                        pendingCameraTarget = target
+                        cameraLauncher.launch(Uri.parse(target))
+                    }
+                },
+                onChooseFromGallery = {
+                    galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                modifier = contentModifier,
+            )
         }
     }
 }
@@ -126,65 +181,57 @@ fun AddEditItemScreen(
 private fun ItemForm(
     state: AddEditUiState,
     viewModel: AddEditViewModel,
-    onSaveClick: () -> Unit,
+    canTakePhoto: Boolean,
+    onTakePhoto: () -> Unit,
+    onChooseFromGallery: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showDatePicker by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = Spacing.page, vertical = Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
-        OutlinedTextField(
+        PhotoPicker(
+            photoUri = state.photoUri,
+            isBusy = state.isPhotoBusy,
+            failed = state.photoFailed,
+            canTakePhoto = canTakePhoto,
+            onTakePhoto = onTakePhoto,
+            onChooseFromGallery = onChooseFromGallery,
+            onRemove = viewModel::onPhotoRemoved,
+        )
+
+        AddItemFormField(
+            label = stringResource(R.string.field_name),
             value = state.name,
             onValueChange = viewModel::onNameChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.field_name)) },
-            singleLine = true,
-            isError = state.nameError != null,
-            supportingText = state.nameError?.let { error ->
-                { Text(stringResource(nameErrorText(error))) }
-            },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Sentences,
-                imeAction = ImeAction.Next,
-            ),
+            placeholder = stringResource(R.string.field_name_hint),
+            errorText = state.nameError?.let { stringResource(nameErrorText(it)) },
         )
 
-        DropdownField(
-            label = stringResource(R.string.field_category),
-            selectedText = categoryLabel(state.category),
-            options = ItemCategory.entries,
-            optionLabel = { categoryLabel(it) },
-            onSelected = viewModel::onCategoryChange,
-        )
+        CategorySelector(selected = state.category, onSelected = viewModel::onCategoryChange)
 
-        ExpiryDateField(
+        ExpiryDateSelector(
             date = state.expiryDate,
-            error = state.dateError,
-            onClick = { showDatePicker = true },
+            onDateSelected = viewModel::onExpiryDateChange,
+            errorText = state.dateError?.let { stringResource(dateErrorText(it)) },
         )
 
-        DropdownField(
-            label = stringResource(R.string.field_reminder),
-            selectedText = reminderLabel(state.reminderDaysBefore),
-            options = ReminderOptions.ALL,
-            optionLabel = { reminderLabel(it) },
+        ReminderSelector(
+            selectedDaysBefore = state.reminderDaysBefore,
             onSelected = viewModel::onReminderChange,
         )
 
-        OutlinedTextField(
+        AddItemFormField(
+            label = stringResource(R.string.field_notes),
             value = state.notes,
             onValueChange = viewModel::onNotesChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 112.dp),
-            label = { Text(stringResource(R.string.field_notes)) },
+            placeholder = stringResource(R.string.field_notes_hint),
+            singleLine = false,
             minLines = 3,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            imeAction = ImeAction.Default,
         )
 
         if (state.saveFailed) {
@@ -194,34 +241,46 @@ private fun ItemForm(
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-
-    }
-
-    if (showDatePicker) {
-        ExpiryDatePickerDialog(
-            initialDate = state.expiryDate,
-            onConfirm = {
-                viewModel.onExpiryDateChange(it)
-                showDatePicker = false
-            },
-            onDismiss = { showDatePicker = false },
-        )
+        if (state.deleteFailed) {
+            Text(
+                text = stringResource(R.string.delete_failed),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 
-/** Pinned below the scrolling form so Save never hides behind the keyboard. */
+/** Pinned below the scrolling form so Save never hides behind the keyboard. Delete is separate and neutral. */
 @Composable
-private fun SaveBar(isSaving: Boolean, onClick: () -> Unit) {
-    Surface(tonalElevation = 3.dp) {
-        Button(
-            onClick = onClick,
-            enabled = !isSaving,
+private fun SaveBar(
+    isEditing: Boolean,
+    busy: Boolean,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.background, shadowElevation = 3.dp) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-                .heightIn(min = 48.dp),
+                .navigationBarsPadding()
+                .padding(horizontal = Spacing.page, vertical = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Text(stringResource(R.string.action_save))
+            PrimaryButton(
+                text = stringResource(if (isEditing) R.string.action_save_changes else R.string.action_save_item),
+                onClick = onSave,
+                enabled = !busy,
+                modifier = Modifier.weight(1f),
+            )
+            if (isEditing) {
+                NeutralIconButton(
+                    icon = Icons.Outlined.Delete,
+                    contentDescription = stringResource(R.string.action_delete),
+                    onClick = onDelete,
+                )
+            }
         }
     }
 }
@@ -230,13 +289,23 @@ private fun SaveBar(isSaving: Boolean, onClick: () -> Unit) {
 private fun NotificationExplanationDialog(onContinue: () -> Unit, onSkip: () -> Unit) {
     AlertDialog(
         onDismissRequest = onSkip,
+        icon = {
+            Icon(
+                Icons.Outlined.Notifications,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp),
+            )
+        },
         title = { Text(stringResource(R.string.notif_explain_title)) },
         text = { Text(stringResource(R.string.notif_explain_body)) },
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         confirmButton = {
-            TextButton(onClick = onContinue) { Text(stringResource(R.string.notif_explain_continue)) }
+            PrimaryButton(text = stringResource(R.string.notif_explain_continue), onClick = onContinue)
         },
         dismissButton = {
-            TextButton(onClick = onSkip) { Text(stringResource(R.string.notif_explain_skip)) }
+            SecondaryButton(text = stringResource(R.string.notif_explain_skip), onClick = onSkip)
         },
     )
 }
@@ -247,105 +316,4 @@ private fun nameErrorText(error: NameError): Int = when (error) {
 
 private fun dateErrorText(error: DateError): Int = when (error) {
     DateError.MISSING -> R.string.error_date_missing
-}
-
-/** Read-only field that opens the date picker when tapped anywhere (not just the icon). */
-@Composable
-private fun ExpiryDateField(
-    date: LocalDate?,
-    error: DateError?,
-    onClick: () -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    LaunchedEffect(interactionSource) {
-        interactionSource.interactions.collect { interaction ->
-            if (interaction is PressInteraction.Release) onClick()
-        }
-    }
-
-    OutlinedTextField(
-        value = date?.let { formatDate(it) }.orEmpty(),
-        onValueChange = {},
-        modifier = Modifier.fillMaxWidth(),
-        readOnly = true,
-        label = { Text(stringResource(R.string.field_expiry_date)) },
-        placeholder = { Text(stringResource(R.string.field_expiry_date_hint)) },
-        trailingIcon = {
-            Icon(
-                imageVector = Icons.Default.DateRange,
-                contentDescription = stringResource(R.string.field_expiry_date_pick),
-            )
-        },
-        isError = error != null,
-        supportingText = error?.let { e -> { Text(stringResource(dateErrorText(e))) } },
-        singleLine = true,
-        interactionSource = interactionSource,
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ExpiryDatePickerDialog(
-    initialDate: LocalDate?,
-    onConfirm: (LocalDate) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val pickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialDate?.let(DatePickerMillis::fromLocalDate),
-    )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    pickerState.selectedDateMillis?.let { onConfirm(DatePickerMillis.toLocalDate(it)) }
-                        ?: onDismiss()
-                },
-            ) { Text(stringResource(R.string.action_ok)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    ) {
-        DatePicker(state = pickerState)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun <T> DropdownField(
-    label: String,
-    selectedText: String,
-    options: List<T>,
-    optionLabel: @Composable (T) -> String,
-    onSelected: (T) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-    ) {
-        OutlinedTextField(
-            value = selectedText,
-            onValueChange = {},
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            singleLine = true,
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
 }

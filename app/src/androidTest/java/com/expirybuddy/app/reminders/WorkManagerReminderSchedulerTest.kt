@@ -87,6 +87,24 @@ class WorkManagerReminderSchedulerTest {
     }
 
     @Test
+    fun markingAsUsed_cancelsThePendingJob_andRestoringSchedulesItAgain() {
+        scheduler.schedule(item(expiresInDays = 30, daysBefore = 3))
+        assertEquals(1, enqueued().size)
+
+        scheduler.schedule(item(expiresInDays = 30, daysBefore = 3).copy(usedAt = Instant.now()))
+        assertTrue(enqueued().isEmpty())
+
+        scheduler.schedule(item(expiresInDays = 30, daysBefore = 3))
+        assertEquals(1, enqueued().size)
+    }
+
+    @Test
+    fun restore_neverSchedulesUsedItems() {
+        scheduler.restore(listOf(item(expiresInDays = 30, daysBefore = 3).copy(usedAt = Instant.now())))
+        assertTrue(enqueued().isEmpty())
+    }
+
+    @Test
     fun editingToNoReminder_cancelsThePendingJob() {
         scheduler.schedule(item(expiresInDays = 30, daysBefore = 3))
 

@@ -60,6 +60,16 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun itemsMarkedAsUsed_areNotShownOrCounted() = runTest {
+        val used = item(4, "finished yogurt", 1).copy(usedAt = Instant.parse("2026-03-14T00:00:00Z"))
+        val content = viewModel(FakeExpiryItemRepository(sample + used)).content()
+
+        assertEquals(3, content.totalCount)
+        assertTrue(content.sections.expiringSoon.none { it.item.isUsed })
+        assertEquals(listOf("eggs"), content.sections.expiringSoon.map { it.item.name })
+    }
+
+    @Test
     fun items_areGroupedIntoStatusSections() = runTest {
         val content = viewModel().content()
 

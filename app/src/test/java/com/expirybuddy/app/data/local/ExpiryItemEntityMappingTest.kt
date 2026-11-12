@@ -26,6 +26,28 @@ class ExpiryItemEntityMappingTest {
     }
 
     @Test
+    fun v2Fields_photoUpdatedAtAndUsedAt_surviveMapping() {
+        val v2 = item.copy(
+            photoUri = "file:///photos/a.jpg",
+            updatedAt = Instant.ofEpochMilli(1_700_000_500_000L),
+            usedAt = Instant.ofEpochMilli(1_700_000_900_000L),
+        )
+        val entity = v2.toEntity()
+        assertEquals("file:///photos/a.jpg", entity.photoUri)
+        assertEquals(1_700_000_500_000L, entity.updatedAt)
+        assertEquals(1_700_000_900_000L, entity.usedAt)
+        assertEquals(v2, entity.toDomain())
+    }
+
+    @Test
+    fun activeItemWithoutPhoto_hasNullUsedAtAndPhoto() {
+        val entity = item.toEntity()
+        assertNull(entity.photoUri)
+        assertNull(entity.usedAt)
+        assertEquals(false, entity.toDomain().isUsed)
+    }
+
+    @Test
     fun entity_storesCategoryByKeyAndCreatedAtAsMillis() {
         val entity = item.toEntity()
         assertEquals("medication", entity.category)

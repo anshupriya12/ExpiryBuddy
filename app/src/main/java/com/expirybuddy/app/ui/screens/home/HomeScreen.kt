@@ -1,342 +1,332 @@
 package com.expirybuddy.app.ui.screens.home
 
+import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.expirybuddy.app.R
 import com.expirybuddy.app.domain.expiry.ClassifiedItem
+import com.expirybuddy.app.domain.expiry.DayPeriod
 import com.expirybuddy.app.domain.expiry.ExpiryStatus
-import com.expirybuddy.app.domain.expiry.HomeSections
-import com.expirybuddy.app.domain.expiry.StatusCounts
-import com.expirybuddy.app.domain.model.ItemCategory
 import com.expirybuddy.app.ui.AppViewModelProvider
-import com.expirybuddy.app.ui.components.LoadingState
-import com.expirybuddy.app.ui.components.MessageState
-import com.expirybuddy.app.ui.components.ScreenScaffold
-import com.expirybuddy.app.ui.util.categoryLabel
-import com.expirybuddy.app.ui.util.expiryCountdownText
-import com.expirybuddy.app.ui.util.formatDate
+import com.expirybuddy.app.ui.components.AddButton
+import com.expirybuddy.app.ui.components.AppIcons
+import com.expirybuddy.app.ui.components.AppSnackbarHost
+import com.expirybuddy.app.ui.components.EmptyState
+import com.expirybuddy.app.ui.components.ExpiryBuddySearchField
+import com.expirybuddy.app.ui.components.ItemCard
+import com.expirybuddy.app.ui.components.MessageEffect
+import com.expirybuddy.app.ui.components.WashCorner
+import com.expirybuddy.app.ui.components.WashedIcon
+import com.expirybuddy.app.ui.components.peachWash
+import com.expirybuddy.app.ui.theme.HandwrittenStyle
+import com.expirybuddy.app.ui.theme.Spacing
+import com.expirybuddy.app.ui.theme.expiryColors
 import com.expirybuddy.app.ui.util.statusLabel
+import java.time.LocalTime
 
 @Composable
 fun HomeScreen(
     onAddItem: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenItem: (Long) -> Unit,
+    onSeeAll: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+    @StringRes message: Int?,
+    onMessageShown: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
+    var period by remember { mutableStateOf(DayPeriod.forHour(LocalTime.now().hour)) }
 
-    // Statuses depend on today's date, which may have changed while the app was in the background.
+    // Statuses and the greeting depend on the time, which may have changed while the app was away.
     LifecycleResumeEffect(viewModel) {
         viewModel.onResumed()
+        period = DayPeriod.forHour(LocalTime.now().hour)
         onPauseOrDispose { }
     }
+    MessageEffect(message, snackbarHostState, onMessageShown)
 
-    ScreenScaffold(
-        title = stringResource(R.string.home_title),
-        actions = {
-            IconButton(onClick = onOpenSettings) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.nav_settings),
-                )
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddItem) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(R.string.nav_add_item),
-                )
-            }
-        },
-    ) { padding ->
-        // consumeWindowInsets lets the imePadding in ItemsContent add only the keyboard's extra height.
-        val contentModifier = Modifier.padding(padding).consumeWindowInsets(padding)
-        when (val current = state) {
-            HomeUiState.Loading -> LoadingState(contentModifier)
-            HomeUiState.Error -> MessageState(
-                body = stringResource(R.string.home_error),
-                modifier = contentModifier,
-                actionLabel = stringResource(R.string.action_retry),
-                onAction = viewModel::retry,
-            )
-            is HomeUiState.Content -> if (current.totalCount == 0) {
-                MessageState(
-                    title = stringResource(R.string.home_empty_title),
-                    body = stringResource(R.string.home_empty_body),
-                    modifier = contentModifier,
-                    actionLabel = stringResource(R.string.home_empty_action),
-                    onAction = onAddItem,
-                )
-            } else {
-                ItemsContent(
-                    content = current,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .peachWash(WashCorner.BottomStart),
+    ) {
+        Scaffold(
+            // The whole screen rises above the keyboard so the search field stays visible while typing.
+            modifier = Modifier.imePadding(),
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onBackground,
+            snackbarHost = { AppSnackbarHost(snackbarHostState) },
+            bottomBar = {
+                SearchBar(
                     query = query,
                     onQueryChange = viewModel::onQueryChange,
-                    onCategorySelected = viewModel::onCategorySelected,
-                    onClearFilters = viewModel::onClearFilters,
-                    onOpenItem = onOpenItem,
-                    modifier = contentModifier,
+                    onAddItem = onAddItem,
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ItemsContent(
-    content: HomeUiState.Content,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onCategorySelected: (ItemCategory?) -> Unit,
-    onClearFilters: () -> Unit,
-    onOpenItem: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    // imePadding shrinks the list/message area when the keyboard opens, so results stay reachable.
-    Column(modifier = modifier.imePadding()) {
-        // Search and category chips stay pinned above the scrolling list.
-        SearchAndFilters(
-            query = query,
-            selectedCategory = content.filter.category,
-            onQueryChange = onQueryChange,
-            onCategorySelected = onCategorySelected,
-        )
-        if (content.sections.isEmpty) {
-            MessageState(
-                title = stringResource(R.string.no_results_title),
-                body = stringResource(R.string.no_results_body),
-                actionLabel = stringResource(R.string.no_results_action),
-                onAction = onClearFilters,
-            )
-        } else {
-            ItemList(content.sections, onOpenItem)
-        }
-    }
-}
-
-@Composable
-private fun SearchAndFilters(
-    query: String,
-    selectedCategory: ItemCategory?,
-    onQueryChange: (String) -> Unit,
-    onCategorySelected: (ItemCategory?) -> Unit,
-) {
-    val focusManager: FocusManager = LocalFocusManager.current
-    Column(
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            placeholder = { Text(stringResource(R.string.search_hint)) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.search_clear))
-                    }
-                }
             },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-        )
-        val filterDescription = stringResource(R.string.filter_by_category)
-        LazyRow(
-            modifier = Modifier.semantics { contentDescription = filterDescription },
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item(key = "all") {
-                FilterChip(
-                    selected = selectedCategory == null,
-                    onClick = { onCategorySelected(null) },
-                    label = { Text(stringResource(R.string.filter_all)) },
-                )
-            }
-            items(ItemCategory.entries, key = { it.storageKey }) { category ->
-                FilterChip(
-                    selected = selectedCategory == category,
-                    onClick = { onCategorySelected(category) },
-                    label = { Text(categoryLabel(category)) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ItemList(sections: HomeSections, onOpenItem: (Long) -> Unit) {
-    val groups = listOf(
-        ExpiryStatus.EXPIRED to sections.expired,
-        ExpiryStatus.EXPIRING_SOON to sections.expiringSoon,
-        ExpiryStatus.UPCOMING to sections.upcoming,
-    )
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        // Extra bottom space keeps the last row clear of the floating action button.
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item(key = "summary") { SummaryRow(sections.counts) }
-        groups.forEach { (status, list) ->
-            if (list.isNotEmpty()) {
-                item(key = "header-${status.name}") { SectionHeader(status, list.size) }
-                items(list, key = { it.item.id }) { classified ->
-                    ItemRow(classified, onClick = { onOpenItem(classified.item.id) })
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = Spacing.page,
+                    end = Spacing.page,
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding() + Spacing.lg,
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                item(key = "header") { Header(period, onOpenSettings) }
+                when (val current = state) {
+                    HomeUiState.Loading -> item(key = "loading") { Spacer(Modifier.height(240.dp)) }
+                    HomeUiState.Error -> item(key = "error") {
+                        EmptyState(
+                            body = stringResource(R.string.home_error),
+                            modifier = Modifier.padding(vertical = Spacing.xl),
+                            actionLabel = stringResource(R.string.action_retry),
+                            onAction = viewModel::retry,
+                        )
+                    }
+                    is HomeUiState.Content -> content(
+                        current = current,
+                        onAddItem = onAddItem,
+                        onOpenItem = onOpenItem,
+                        onSeeAll = onSeeAll,
+                        onClearFilters = viewModel::onClearFilters,
+                    )
                 }
             }
         }
     }
 }
 
-@Composable
-private fun SummaryRow(counts: StatusCounts) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        SummaryCard(
-            count = counts.expired,
-            label = statusLabel(ExpiryStatus.EXPIRED),
-            container = MaterialTheme.colorScheme.errorContainer,
-            content = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.weight(1f),
-        )
-        SummaryCard(
-            count = counts.expiringSoon,
-            label = statusLabel(ExpiryStatus.EXPIRING_SOON),
-            container = MaterialTheme.colorScheme.tertiaryContainer,
-            content = MaterialTheme.colorScheme.onTertiaryContainer,
-            modifier = Modifier.weight(1f),
-        )
-        SummaryCard(
-            count = counts.upcoming,
-            label = statusLabel(ExpiryStatus.UPCOMING),
-            container = MaterialTheme.colorScheme.secondaryContainer,
-            content = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun SummaryCard(
-    count: Int,
-    label: String,
-    container: Color,
-    content: Color,
-    modifier: Modifier = Modifier,
+private fun androidx.compose.foundation.lazy.LazyListScope.content(
+    current: HomeUiState.Content,
+    onAddItem: () -> Unit,
+    onOpenItem: (Long) -> Unit,
+    onSeeAll: () -> Unit,
+    onClearFilters: () -> Unit,
 ) {
-    val description = stringResource(R.string.home_count_description, count, label)
-    Card(
-        modifier = modifier.semantics(mergeDescendants = true) { contentDescription = description },
-        colors = CardDefaults.cardColors(containerColor = container, contentColor = content),
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(12.dp)
-                .clearAndSetSemantics { },
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(text = count.toString(), style = MaterialTheme.typography.headlineMedium)
-            Text(text = label, style = MaterialTheme.typography.labelMedium)
+    val sections = current.sections
+    when {
+        current.totalCount == 0 -> item(key = "empty") {
+            EmptyState(
+                title = stringResource(R.string.home_empty_title),
+                body = stringResource(R.string.home_empty_body),
+                modifier = Modifier.padding(vertical = Spacing.xl),
+                illustration = {
+                    WashedIcon(
+                        icon = AppIcons.Box,
+                        tint = MaterialTheme.colorScheme.primary,
+                        wash = MaterialTheme.expiryColors.peach,
+                    )
+                },
+                tagline = stringResource(R.string.home_empty_tagline),
+                taglineStyle = HandwrittenStyle,
+                actionLabel = stringResource(R.string.home_empty_action),
+                onAction = onAddItem,
+            )
+        }
+
+        // Searching: show every matching active item, not just the expiring ones.
+        current.filter.isActive -> {
+            val results = sections.expired + sections.expiringSoon + sections.upcoming
+            if (results.isEmpty()) {
+                item(key = "no-results") {
+                    EmptyState(
+                        title = stringResource(R.string.no_results_title),
+                        body = stringResource(R.string.no_results_body),
+                        modifier = Modifier.padding(vertical = Spacing.xl),
+                        actionLabel = stringResource(R.string.no_results_action),
+                        onAction = onClearFilters,
+                    )
+                }
+            } else {
+                item(key = "results-header") {
+                    SectionTitle(stringResource(R.string.home_search_results, results.size))
+                }
+                cards(results, onOpenItem)
+            }
+        }
+
+        else -> {
+            if (sections.expired.isNotEmpty()) {
+                item(key = "expired-header") {
+                    SectionTitle(stringResource(R.string.home_section_title, statusLabel(ExpiryStatus.EXPIRED), sections.expired.size))
+                }
+                cards(sections.expired, onOpenItem)
+            }
+            if (sections.expiringSoon.isNotEmpty()) {
+                item(key = "soon-header") {
+                    SectionTitle(
+                        title = stringResource(R.string.home_section_title, statusLabel(ExpiryStatus.EXPIRING_SOON), sections.expiringSoon.size),
+                        action = { SeeAll(onSeeAll) },
+                    )
+                }
+                cards(sections.expiringSoon, onOpenItem)
+            } else if (sections.expired.isEmpty()) {
+                item(key = "nothing-soon") {
+                    EmptyState(
+                        title = stringResource(R.string.home_nothing_soon_title),
+                        body = stringResource(R.string.home_nothing_soon_body),
+                        modifier = Modifier.padding(vertical = Spacing.xl),
+                        illustration = {
+                            WashedIcon(
+                                icon = Icons.Outlined.CheckCircle,
+                                tint = MaterialTheme.expiryColors.success,
+                                wash = MaterialTheme.expiryColors.successContainer,
+                            )
+                        },
+                        actionLabel = stringResource(R.string.home_nothing_soon_action),
+                        onAction = onSeeAll,
+                    )
+                }
+            } else {
+                item(key = "see-all-only") { SectionTitle(title = "", action = { SeeAll(onSeeAll) }) }
+            }
         }
     }
 }
 
-@Composable
-private fun SectionHeader(status: ExpiryStatus, count: Int) {
-    Text(
-        text = stringResource(R.string.home_section_title, statusLabel(status), count),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier
-            .padding(top = 12.dp)
-            .semantics { heading() },
-    )
+private fun androidx.compose.foundation.lazy.LazyListScope.cards(
+    list: List<ClassifiedItem>,
+    onOpenItem: (Long) -> Unit,
+) {
+    items(list, key = { it.item.id }) { classified ->
+        ItemCard(classified, onClick = { onOpenItem(classified.item.id) })
+    }
 }
 
 @Composable
-private fun ItemRow(classified: ClassifiedItem, onClick: () -> Unit) {
-    val item = classified.item
-    val category = categoryLabel(item.category)
-    val date = formatDate(item.expiryDate)
-    val countdown = expiryCountdownText(classified.daysUntilExpiry)
-    val description = stringResource(R.string.home_item_description, item.name, category, countdown, date)
-    val expired = classified.status == ExpiryStatus.EXPIRED
+private fun Header(period: DayPeriod, onOpenSettings: () -> Unit) {
+    androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(onClick = onOpenSettings, modifier = Modifier.size(Spacing.touchTarget)) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = stringResource(R.string.nav_settings),
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(Spacing.lg))
+        Text(
+            text = stringResource(
+                when (period) {
+                    DayPeriod.MORNING -> R.string.home_greeting_morning
+                    DayPeriod.AFTERNOON -> R.string.home_greeting_afternoon
+                    DayPeriod.EVENING -> R.string.home_greeting_evening
+                },
+            ),
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            text = stringResource(R.string.home_subtitle),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Spacing.lg))
+    }
+}
 
-    Card(
-        onClick = onClick,
+@Composable
+private fun SectionTitle(title: String, action: (@Composable () -> Unit)? = null) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = description },
+            .padding(top = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // The card's merged description above replaces the individual texts for screen readers.
-        Column(
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
             modifier = Modifier
-                .padding(16.dp)
-                .clearAndSetSemantics { },
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(text = item.name, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-            Text(
-                text = stringResource(R.string.home_item_category_date, category, date),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = countdown,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = if (expired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
-        }
+                .weight(1f)
+                .semantics { heading() },
+        )
+        action?.invoke()
+    }
+}
+
+@Composable
+private fun SeeAll(onClick: () -> Unit) {
+    val description = stringResource(R.string.home_see_all_description)
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier
+            .heightIn(min = Spacing.touchTarget)
+            .semantics { contentDescription = description },
+    ) {
+        Text(stringResource(R.string.home_see_all), style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.size(Spacing.xs))
+        Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+    }
+}
+
+/** Search field and the round add button, pinned to the bottom for one-handed reach. */
+@Composable
+private fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onAddItem: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = Spacing.page, vertical = Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        ExpiryBuddySearchField(
+            query = query,
+            onQueryChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+        )
+        AddButton(contentDescription = stringResource(R.string.nav_add_item), onClick = onAddItem)
     }
 }

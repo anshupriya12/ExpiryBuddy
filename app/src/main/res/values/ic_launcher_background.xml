@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1B6B5A</color>
+    <color name="ic_launcher_background">#FFF0E6</color>
+    <!-- Shown for the instant before the first Compose frame, so there is no white/dark flash. -->
+    <color name="window_background">#FFFCFA</color>
 </resources>

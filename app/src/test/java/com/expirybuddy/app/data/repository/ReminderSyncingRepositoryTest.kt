@@ -46,6 +46,38 @@ class ReminderSyncingRepositoryTest {
     }
 
     @Test
+    fun markingAnItemAsUsed_cancelsItsPendingReminder() = runTest {
+        val id = repository.save(item(daysBefore = 3))
+        assertEquals(1, scheduler.pending.size)
+
+        repository.save(item(daysBefore = 3, id = id).copy(usedAt = Instant.parse("2026-03-01T08:00:00Z")))
+
+        assertTrue(scheduler.pending.isEmpty())
+        // The item is still saved: marking as used never deletes it.
+        assertEquals(1, delegate.saved.size)
+    }
+
+    @Test
+    fun restoringAUsedItem_schedulesItsReminderAgain() = runTest {
+        val id = repository.save(item(daysBefore = 3).copy(usedAt = Instant.parse("2026-03-01T08:00:00Z")))
+        assertTrue(scheduler.pending.isEmpty())
+
+        repository.save(item(daysBefore = 3, id = id))
+
+        assertEquals(Duration.ofDays(6).plusHours(1), scheduler.pending[ReminderWork.uniqueName(id)])
+    }
+
+    @Test
+    fun restoreAtAppStart_skipsUsedItems() = runTest {
+        val active = item(daysBefore = 3, id = 1)
+        val used = item(daysBefore = 3, id = 2).copy(usedAt = Instant.parse("2026-03-01T08:00:00Z"))
+
+        scheduler.restore(listOf(active, used))
+
+        assertEquals(setOf(ReminderWork.uniqueName(1)), scheduler.pending.keys)
+    }
+
+    @Test
     fun savingWithoutAReminder_schedulesNothing() = runTest {
         repository.save(item(daysBefore = null))
         assertTrue(scheduler.pending.isEmpty())

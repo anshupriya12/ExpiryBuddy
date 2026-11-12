@@ -18,10 +18,13 @@ class ExpiryBuddyApp : Application() {
         super.onCreate()
         NotificationHelper.createChannel(this)
 
-        // Off the main thread: re-plan upcoming reminders in case the time zone changed.
+        // Off the main thread: re-plan upcoming reminders in case the time zone changed, and delete
+        // photo files no saved item refers to any more (left behind by a crash mid-edit).
         appScope.launch {
             try {
-                container.reminderScheduler.restore(container.itemRepository.getAllItems())
+                val items = container.itemRepository.getAllItems()
+                container.reminderScheduler.restore(items)
+                container.photoStorage.deleteAllExcept(items.mapNotNull { it.photoUri }.toSet())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

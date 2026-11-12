@@ -7,9 +7,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.expirybuddy.app.AppContainer
 import com.expirybuddy.app.ExpiryBuddyApp
+import com.expirybuddy.app.ui.screens.all.AllItemsViewModel
 import com.expirybuddy.app.ui.screens.details.ItemDetailsViewModel
 import com.expirybuddy.app.ui.screens.edit.AddEditViewModel
 import com.expirybuddy.app.ui.screens.home.HomeViewModel
+import com.expirybuddy.app.ui.screens.settings.SettingsViewModel
 
 /** Builds ViewModels from the app-level [AppContainer]. */
 object AppViewModelProvider {
@@ -18,9 +20,26 @@ object AppViewModelProvider {
             HomeViewModel(createSavedStateHandle(), container().itemRepository, container().clock)
         }
         initializer {
-            AddEditViewModel(createSavedStateHandle(), container().itemRepository, container().clock)
+            AllItemsViewModel(createSavedStateHandle(), container().itemRepository, container().clock)
         }
-        initializer { ItemDetailsViewModel(createSavedStateHandle(), container().itemRepository) }
+        initializer {
+            AddEditViewModel(
+                createSavedStateHandle(),
+                container().itemRepository,
+                container().clock,
+                container().photoStorage,
+                container().userPreferences,
+            )
+        }
+        initializer {
+            ItemDetailsViewModel(
+                createSavedStateHandle(),
+                container().itemRepository,
+                container().clock,
+                container().photoStorage,
+            )
+        }
+        initializer { SettingsViewModel(container().userPreferences) }
     }
 }
 

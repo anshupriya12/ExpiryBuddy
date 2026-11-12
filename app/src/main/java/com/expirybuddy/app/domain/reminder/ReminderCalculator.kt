@@ -16,8 +16,12 @@ object ReminderCalculator {
     /** Local time of day at which reminders are delivered. */
     val REMINDER_TIME: LocalTime = LocalTime.of(9, 0)
 
-    /** The calendar day the reminder is for, or null if the item has no reminder. */
+    /**
+     * The calendar day the reminder is for, or null if the item has no reminder. An item marked as
+     * used never has one, so scheduling it cancels any pending reminder.
+     */
     fun reminderDate(item: ExpiryItem): LocalDate? {
+        if (item.isUsed) return null
         val daysBefore = item.reminderDaysBefore?.takeIf { it >= 0 } ?: return null
         return item.expiryDate.minusDays(daysBefore.toLong())
     }

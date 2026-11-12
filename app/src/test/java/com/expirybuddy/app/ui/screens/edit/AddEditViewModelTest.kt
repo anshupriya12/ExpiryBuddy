@@ -7,6 +7,8 @@ import com.expirybuddy.app.domain.validation.DateError
 import com.expirybuddy.app.domain.validation.ItemFormValidator
 import com.expirybuddy.app.domain.validation.NameError
 import com.expirybuddy.app.testing.FakeExpiryItemRepository
+import com.expirybuddy.app.testing.FakePhotoStorage
+import com.expirybuddy.app.testing.FakeUserPreferences
 import com.expirybuddy.app.testing.MainDispatcherRule
 import com.expirybuddy.app.ui.navigation.Destinations
 import org.junit.Assert.assertEquals
@@ -27,11 +29,15 @@ class AddEditViewModelTest {
     private val now = Instant.parse("2026-03-01T10:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val repository = FakeExpiryItemRepository()
+    private val photos = FakePhotoStorage()
+    private val preferences = FakeUserPreferences()
 
     private fun newViewModel(itemId: Long = Destinations.NO_ITEM_ID) = AddEditViewModel(
         SavedStateHandle(mapOf(Destinations.ITEM_ID_ARG to itemId)),
         repository,
         clock,
+        photos,
+        preferences,
     )
 
     private fun existingItem() = ExpiryItem(
@@ -252,6 +258,194 @@ class AddEditViewModelTest {
         vm.onNotificationExplanationHandled()
 
         assertEquals(1, repository.saved.size)
+    }
+
+    // --- V2: default reminder, photos, used state, delete ---------------------------------------
+
+    @Test
+    fun newItem_startsWithTheDefaultReminderFromSettings() {
+        preferences.defaultReminderDays = 7
+        assertEquals(7, newViewModel().uiState.value.reminderDaysBefore)
+
+        preferences.defaultReminderDays = null
+        assertNull(newViewModel().uiState.value.reminderDaysBefore)
+    }
+
+    @Test
+    fun editMode_keepsTheItemsOwnReminder_notTheDefault() {
+        preferences.defaultReminderDays = 14
+        val id = kotlinx.coroutines.runBlocking { repository.save(existingItem().copy(id = 0)) }
+
+        assertEquals(7, newViewModel(itemId = id).uiState.value.reminderDaysBefore)
+    }
+
+    @Test
+    fun pickingAPhoto_storesItAndShowsIt() {
+        val vm = newViewModel()
+
+        vm.onPhotoPicked("content://gallery/1")
+
+        val state = vm.uiState.value
+        assertEquals(photos.stored.single(), state.photoUri)
+        assertFalse(state.isPhotoBusy)
+        assertFalse(state.photoFailed)
+    }
+
+    @Test
+    fun anUnreadablePhoto_isReported_andKeepsTheCurrentOne() {
+        val vm = newViewModel()
+        vm.onPhotoPicked("content://gallery/1")
+        val first = vm.uiState.value.photoUri
+        photos.failImport = true
+
+        vm.onPhotoPicked("content://gallery/broken")
+
+        assertTrue(vm.uiState.value.photoFailed)
+        assertEquals(first, vm.uiState.value.photoUri)
+        assertTrue(photos.deleted.isEmpty())
+    }
+
+    @Test
+    fun replacingAnUnsavedPhoto_deletesTheOldFile() {
+        val vm = newViewModel()
+        vm.onPhotoPicked("content://gallery/1")
+        val first = vm.uiState.value.photoUri
+
+        vm.onPhotoPicked("content://gallery/2")
+
+        assertEquals(listOf(first), photos.deleted)
+        assertEquals(1, photos.stored.size)
+    }
+
+    @Test
+    fun removingAnUnsavedPhoto_deletesTheFile() {
+        val vm = newViewModel()
+        vm.onPhotoPicked("content://gallery/1")
+        val first = vm.uiState.value.photoUri
+
+        vm.onPhotoRemoved()
+
+        assertNull(vm.uiState.value.photoUri)
+        assertEquals(listOf(first), photos.deleted)
+    }
+
+    @Test
+    fun savingKeepsThePhoto_onTheItem() {
+        val vm = newViewModel()
+        vm.onNameChange("Milk")
+        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onPhotoPicked("content://gallery/1")
+
+        vm.onSave()
+
+        assertEquals(photos.stored.single(), repository.saved.single().photoUri)
+        assertTrue(photos.deleted.isEmpty())
+    }
+
+    @Test
+    fun leavingWithoutSaving_discardsTheUnsavedPhoto() {
+        val vm = newViewModel()
+        vm.onPhotoPicked("content://gallery/1")
+
+        vm.discardUnsavedPhoto()
+
+        assertTrue(photos.stored.isEmpty())
+    }
+
+    @Test
+    fun leavingAfterSaving_keepsThePhoto() {
+        val vm = newViewModel()
+        vm.onNameChange("Milk")
+        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onPhotoPicked("content://gallery/1")
+        vm.onSave()
+
+        vm.discardUnsavedPhoto()
+
+        assertEquals(1, photos.stored.size)
+        assertTrue(photos.deleted.isEmpty())
+    }
+
+    @Test
+    fun editMode_removingTheSavedPhoto_deletesItOnlyAfterSaving() {
+        val id = kotlinx.coroutines.runBlocking {
+            repository.save(existingItem().copy(id = 0, photoUri = "file:///photos/saved.jpg"))
+        }
+        val vm = newViewModel(itemId = id)
+        assertEquals("file:///photos/saved.jpg", vm.uiState.value.photoUri)
+
+        vm.onPhotoRemoved()
+        // Not saved yet: the item still points at the file, so the file must still exist.
+        assertTrue(photos.deleted.isEmpty())
+
+        vm.onSave()
+
+        assertNull(repository.saved.single().photoUri)
+        assertEquals(listOf("file:///photos/saved.jpg"), photos.deleted)
+    }
+
+    @Test
+    fun editMode_replacingTheSavedPhoto_deletesTheOldOneAfterSaving() {
+        val id = kotlinx.coroutines.runBlocking {
+            repository.save(existingItem().copy(id = 0, photoUri = "file:///photos/saved.jpg"))
+        }
+        val vm = newViewModel(itemId = id)
+
+        vm.onPhotoPicked("content://gallery/1")
+        vm.onSave()
+
+        assertEquals(photos.stored.single(), repository.saved.single().photoUri)
+        assertEquals(listOf("file:///photos/saved.jpg"), photos.deleted)
+    }
+
+    @Test
+    fun editMode_save_keepsUsedState_andStampsUpdatedAt() {
+        val usedAt = Instant.parse("2026-02-01T00:00:00Z")
+        val id = kotlinx.coroutines.runBlocking { repository.save(existingItem().copy(id = 0, usedAt = usedAt)) }
+        val vm = newViewModel(itemId = id)
+
+        vm.onNameChange("Aspirin 500")
+        vm.onSave()
+
+        val item = repository.saved.single()
+        assertEquals(usedAt, item.usedAt)
+        assertEquals(now, item.updatedAt)
+    }
+
+    @Test
+    fun editMode_delete_removesItemAndItsPhoto() {
+        val id = kotlinx.coroutines.runBlocking {
+            repository.save(existingItem().copy(id = 0, photoUri = "file:///photos/saved.jpg"))
+        }
+        val vm = newViewModel(itemId = id)
+
+        vm.onDelete()
+
+        assertTrue(vm.uiState.value.deleted)
+        assertTrue(repository.saved.isEmpty())
+        assertEquals(listOf("file:///photos/saved.jpg"), photos.deleted)
+    }
+
+    @Test
+    fun editMode_deleteFailure_keepsItem_andFlagsIt() {
+        val id = kotlinx.coroutines.runBlocking { repository.save(existingItem().copy(id = 0)) }
+        val vm = newViewModel(itemId = id)
+        repository.failDelete = true
+
+        vm.onDelete()
+
+        assertTrue(vm.uiState.value.deleteFailed)
+        assertFalse(vm.uiState.value.deleted)
+        assertEquals(1, repository.saved.size)
+    }
+
+    @Test
+    fun addMode_delete_doesNothing() {
+        val vm = newViewModel()
+
+        vm.onDelete()
+
+        assertFalse(vm.uiState.value.deleted)
     }
 
     @Test

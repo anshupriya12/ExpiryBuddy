@@ -3,6 +3,10 @@ package com.expirybuddy.app
 import android.content.Context
 import androidx.work.WorkManager
 import com.expirybuddy.app.data.local.ExpiryBuddyDatabase
+import com.expirybuddy.app.data.photo.FilePhotoStorage
+import com.expirybuddy.app.data.photo.PhotoStorage
+import com.expirybuddy.app.data.prefs.SharedPreferencesUserPreferences
+import com.expirybuddy.app.data.prefs.UserPreferences
 import com.expirybuddy.app.data.repository.ExpiryItemRepository
 import com.expirybuddy.app.data.repository.ReminderSyncingRepository
 import com.expirybuddy.app.data.repository.RoomExpiryItemRepository
@@ -33,4 +37,8 @@ class AppContainer(context: Context) {
     }
 
     val notificationPrefs: NotificationPrefs by lazy { NotificationPrefs(appContext) }
+
+    val userPreferences: UserPreferences by lazy { SharedPreferencesUserPreferences(appContext) }
+
+    val photoStorage: PhotoStorage by lazy { FilePhotoStorage(appContext) }
 }

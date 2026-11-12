@@ -6,12 +6,14 @@
     <string name="nav_back">Back</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_add_item">Add item</string>
-    <string name="action_save">Save</string>
+    <string name="action_save_item">Save item</string>
+    <string name="action_save_changes">Save changes</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_retry">Try again</string>
-    <string name="action_edit">Edit item</string>
     <string name="action_delete">Delete item</string>
+    <string name="action_more">More options</string>
+    <string name="action_dismiss">Dismiss</string>
     <string name="loading">Loading</string>
 
     <!-- Categories -->
@@ -24,21 +26,32 @@
 
     <!-- Reminders -->
     <string name="reminder_none">No reminder</string>
-    <string name="reminder_on_day">On the expiry day</string>
+    <string name="reminder_on_day">On the same day</string>
+    <string name="reminder_one_week">1 week before</string>
+    <string name="reminder_two_weeks">2 weeks before</string>
     <plurals name="reminder_days_before">
         <item quantity="one">%d day before</item>
         <item quantity="other">%d days before</item>
     </plurals>
 
     <!-- Home -->
-    <string name="home_title">Expiry Buddy</string>
-    <string name="home_empty_title">Nothing to track yet</string>
-    <string name="home_empty_body">Add something that expires, like food, medicine or a passport, and Expiry Buddy will keep an eye on it.</string>
-    <string name="home_empty_action">Add your first item</string>
+    <string name="home_greeting_morning">Good morning!</string>
+    <string name="home_greeting_afternoon">Good afternoon!</string>
+    <string name="home_greeting_evening">Good evening!</string>
+    <string name="home_subtitle">Here\'s what\'s on your list.</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_see_all_description">See all items</string>
+    <string name="home_empty_title">No items yet</string>
+    <string name="home_empty_body">Start by adding something to track its expiry.</string>
+    <string name="home_empty_tagline">Don\'t let it go to waste!</string>
+    <string name="home_empty_action">Add item</string>
+    <string name="home_nothing_soon_title">Nothing expiring soon!</string>
+    <string name="home_nothing_soon_body">Everything on your list is still fresh.</string>
+    <string name="home_nothing_soon_action">View all items</string>
     <string name="home_error">Couldn\'t load your items.</string>
+    <string name="home_search_results">Results (%1$d)</string>
     <string name="home_item_category_date">%1$s · %2$s</string>
     <string name="home_item_description">%1$s, %2$s, %3$s, expiry date %4$s</string>
-    <string name="home_count_description">%1$d %2$s</string>
     <string name="home_section_title">%1$s (%2$d)</string>
 
     <!-- Expiry status -->
@@ -55,25 +68,41 @@
         <item quantity="one">Expired %d day ago</item>
         <item quantity="other">Expired %d days ago</item>
     </plurals>
+    <string name="status_used_on">Used on %1$s</string>
 
-    <!-- Search and filter -->
+    <!-- Search, filter and sort -->
     <string name="search_hint">Search items</string>
     <string name="search_clear">Clear search</string>
     <string name="filter_all">All</string>
+    <string name="filter_used">Used</string>
     <string name="filter_by_category">Filter by category</string>
     <string name="no_results_title">No matching items</string>
     <string name="no_results_body">Try a different search or category.</string>
     <string name="no_results_action">Clear filters</string>
+    <string name="sort_label">Sort by: %1$s</string>
+    <string name="sort_menu_title">Sort by</string>
+    <string name="sort_expiry_date">Expiry date</string>
+    <string name="sort_name">Name (A–Z)</string>
+    <string name="sort_category">Category</string>
+
+    <!-- All items -->
+    <string name="all_items_title">All items</string>
+    <string name="all_items_empty_title">No items yet</string>
+    <string name="all_items_empty_body">Items you add will show up here.</string>
+    <string name="all_items_used_empty_title">No used items</string>
+    <string name="all_items_used_empty_body">Items you mark as used will show up here.</string>
 
     <!-- Add / edit -->
     <string name="edit_title_add">Add item</string>
     <string name="edit_title_edit">Edit item</string>
     <string name="field_name">Name</string>
+    <string name="field_name_hint">e.g. Chicken, Paracetamol</string>
     <string name="field_category">Category</string>
     <string name="field_expiry_date">Expiry date</string>
-    <string name="field_expiry_date_hint">Choose a date</string>
+    <string name="field_expiry_date_hint">Select date</string>
     <string name="field_expiry_date_pick">Choose expiry date</string>
     <string name="field_notes">Notes (optional)</string>
+    <string name="field_notes_hint">e.g. Use it for biryani</string>
     <string name="field_reminder">Remind me</string>
     <string name="error_name_blank">Enter a name for this item.</string>
     <string name="error_date_missing">Choose the expiry date.</string>
@@ -81,15 +110,37 @@
     <string name="edit_load_failed">Couldn\'t load this item.</string>
     <string name="item_not_found">This item no longer exists.</string>
 
+    <!-- Photo -->
+    <string name="photo_add">Add a photo</string>
+    <string name="photo_optional">(optional)</string>
+    <string name="photo_take">Take photo</string>
+    <string name="photo_gallery">Choose from gallery</string>
+    <string name="photo_replace">Replace</string>
+    <string name="photo_remove">Remove</string>
+    <string name="photo_sheet_title">Item photo</string>
+    <string name="photo_preview_description">Photo of this item</string>
+    <string name="photo_failed">Couldn\'t use that photo. Please try another one.</string>
+    <string name="photo_busy">Preparing photo</string>
+
+    <!-- Feedback -->
+    <string name="message_item_saved">Item saved!</string>
+    <string name="message_changes_saved">Changes saved</string>
+    <string name="message_item_deleted">Item deleted</string>
+    <string name="message_marked_used">Marked as used</string>
+    <string name="message_restored">Restored to your list</string>
+
     <!-- Details -->
     <string name="details_title">Item details</string>
     <string name="details_expiry_date">Expiry date</string>
-    <string name="details_category">Category</string>
     <string name="details_reminder">Reminder</string>
     <string name="details_notes">Notes</string>
     <string name="details_no_notes">No notes</string>
     <string name="details_added">Added</string>
+    <string name="details_mark_used">Mark as used</string>
+    <string name="details_restore">Restore to list</string>
+    <string name="details_edit">Edit</string>
     <string name="details_load_failed">Couldn\'t load this item.</string>
+    <string name="details_update_failed">Couldn\'t update this item. Please try again.</string>
     <string name="delete_title">Delete this item?</string>
     <string name="delete_message">\"%1$s\" will be removed from this device. This can\'t be undone.</string>
     <string name="delete_confirm">Delete</string>
@@ -98,20 +149,35 @@
     <!-- Notifications -->
     <string name="channel_name">Expiry reminders</string>
     <string name="channel_description">Reminders before your saved items expire</string>
-    <string name="notif_explain_title">Get reminders before items expire?</string>
-    <string name="notif_explain_body">Expiry Buddy can send you a notification before an item expires. That is the only thing it uses notifications for, and the app works fully without them.</string>
-    <string name="notif_explain_continue">Continue</string>
+    <string name="notif_explain_title">Get expiry reminders</string>
+    <string name="notif_explain_body">Allow notifications so we can remind you before items expire. The app works fully without them.</string>
+    <string name="notif_explain_continue">Allow notifications</string>
     <string name="notif_explain_skip">Not now</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_notifications_title">Notifications</string>
-    <string name="settings_notifications_on">Notifications are on. You will get a reminder before items expire.</string>
-    <string name="settings_notifications_off">Notifications are off. You will not get reminders, but everything else works as normal.</string>
-    <string name="settings_allow_notifications">Allow notifications</string>
-    <string name="settings_open_system_settings">Open notification settings</string>
+    <string name="settings_notifications_on">Get reminders before items expire.</string>
+    <string name="settings_notifications_off">Off. You won\'t get reminders, but everything else works.</string>
+    <string name="settings_notifications_blocked">Blocked. Turn them on in system settings.</string>
+    <string name="settings_default_reminder">Default reminder</string>
+    <string name="settings_reminder_time">Reminders arrive at %1$s on the day you choose.</string>
     <string name="settings_about_title">About</string>
     <string name="settings_version">Version %1$s</string>
-    <string name="settings_reminder_time">Reminders arrive at %1$s on the day you choose.</string>
-    <string name="settings_privacy">Your items are stored only on this device. No account or internet connection is needed.</string>
+    <string name="settings_privacy_title">Data &amp; privacy</string>
+    <string name="settings_privacy_summary">Your items are stored only on this device.</string>
+    <string name="settings_privacy">Your items and photos are stored only on this device. There is no account, no sign-in and no internet connection needed.</string>
+    <string name="settings_back_home">Back to Home</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_page_indicator">Page %1$d of %2$d</string>
+    <string name="onboarding_1_title">Track your everyday items</string>
+    <string name="onboarding_1_body">Keep a simple list of food, medicine, cosmetics and more.</string>
+    <string name="onboarding_2_title">Get timely reminders</string>
+    <string name="onboarding_2_body">Never miss an expiry date with simple, helpful alerts.</string>
+    <string name="onboarding_3_title">Use it before it goes to waste</string>
+    <string name="onboarding_3_body">Plan better, save more and waste less.</string>
 </resources>

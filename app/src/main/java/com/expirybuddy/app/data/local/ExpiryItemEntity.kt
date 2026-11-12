@@ -1,5 +1,6 @@
 package com.expirybuddy.app.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -24,6 +25,12 @@ data class ExpiryItemEntity(
     val reminderDaysBefore: Int?,
     /** Epoch milliseconds. */
     val createdAt: Long,
+    /** Added in schema version 2. URI string of a photo in app-private storage. */
+    val photoUri: String? = null,
+    /** Added in schema version 2. Epoch milliseconds; the migration copies [createdAt] into it. */
+    @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
+    /** Added in schema version 2. Epoch milliseconds when marked as used; null while active. */
+    val usedAt: Long? = null,
 )
 
 fun ExpiryItemEntity.toDomain(): ExpiryItem = ExpiryItem(
@@ -34,6 +41,9 @@ fun ExpiryItemEntity.toDomain(): ExpiryItem = ExpiryItem(
     notes = notes,
     reminderDaysBefore = reminderDaysBefore,
     createdAt = Instant.ofEpochMilli(createdAt),
+    photoUri = photoUri,
+    updatedAt = Instant.ofEpochMilli(updatedAt),
+    usedAt = usedAt?.let(Instant::ofEpochMilli),
 )
 
 fun ExpiryItem.toEntity(): ExpiryItemEntity = ExpiryItemEntity(
@@ -44,4 +54,7 @@ fun ExpiryItem.toEntity(): ExpiryItemEntity = ExpiryItemEntity(
     notes = notes,
     reminderDaysBefore = reminderDaysBefore,
     createdAt = createdAt.toEpochMilli(),
+    photoUri = photoUri,
+    updatedAt = updatedAt.toEpochMilli(),
+    usedAt = usedAt?.toEpochMilli(),
 )

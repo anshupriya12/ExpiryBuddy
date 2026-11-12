@@ -28,6 +28,27 @@ class ReminderCalculatorTest {
     private fun at(date: String, time: String, zone: ZoneId = utc): ZonedDateTime =
         ZonedDateTime.of(LocalDateTime.parse("${date}T$time"), zone)
 
+    // --- items marked as used ------------------------------------------------------------------
+
+    private fun usedItem(expiry: LocalDate, daysBefore: Int?) =
+        item(expiry, daysBefore).copy(usedAt = java.time.Instant.parse("2026-03-01T00:00:00Z"))
+
+    @Test
+    fun usedItem_hasNoReminderDate_noDelay_andIsNeverRelevant() {
+        val used = usedItem(LocalDate.of(2026, 3, 10), 3)
+
+        assertNull(ReminderCalculator.reminderDate(used))
+        assertNull(ReminderCalculator.delayUntilReminder(used, at("2026-03-01", "08:00")))
+        assertFalse(ReminderCalculator.isRelevant(used, LocalDate.of(2026, 3, 8)))
+    }
+
+    @Test
+    fun restoredItem_hasItsReminderAgain() {
+        val restored = usedItem(LocalDate.of(2026, 3, 10), 3).copy(usedAt = null)
+
+        assertEquals(LocalDate.of(2026, 3, 7), ReminderCalculator.reminderDate(restored))
+    }
+
     // --- reminder date -------------------------------------------------------------------------
 
     @Test

@@ -12,6 +12,11 @@ import java.time.LocalDate
  * @property reminderDaysBefore days before [expiryDate] to remind (0 = on the day itself);
  * null means the user chose no reminder.
  * @property createdAt moment the item was first saved. A real instant, unlike [expiryDate].
+ * @property photoUri optional photo, a URI string for a file inside the app's private storage.
+ * @property updatedAt moment the item was last saved.
+ * @property usedAt moment the user marked the item as used, or null while it is still active. A used
+ * item stays in the database (it is never silently deleted) but leaves the active lists and has no
+ * reminder.
  */
 data class ExpiryItem(
     val id: Long = NEW_ID,
@@ -21,7 +26,12 @@ data class ExpiryItem(
     val notes: String? = null,
     val reminderDaysBefore: Int? = null,
     val createdAt: Instant,
+    val photoUri: String? = null,
+    val updatedAt: Instant = createdAt,
+    val usedAt: Instant? = null,
 ) {
+    val isUsed: Boolean get() = usedAt != null
+
     companion object {
         const val NEW_ID = 0L
     }

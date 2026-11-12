@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -58,7 +59,8 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = reloadTrigger
         .flatMapLatest {
             combine(
-                repository.observeItems(),
+                // Items marked as used stay saved but are not part of the active lists.
+                repository.observeItems().map { list -> list.filter { !it.isUsed } },
                 query,
                 categoryKey,
                 clockTick.flatMapLatest { clock.todayUpdates() },

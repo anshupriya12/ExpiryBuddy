@@ -138,6 +138,22 @@ class ReminderWorkerTest {
     }
 
     @Test
+    fun itemMarkedAsUsed_postsNothing_evenIfTheJobStillFires() {
+        val id = saveItem(expiresInDays = 2, daysBefore = 2) // reminder day is today
+        runBlocking {
+            val item = container.itemRepository.getItem(id)!!
+            container.itemRepository.save(item.copy(usedAt = Instant.now()))
+        }
+
+        val result = runWorker(id)
+
+        assertEquals(ListenableWorker.Result.success(), result)
+        assertFalse(shown(id) != null)
+        // And the item still exists: marking as used is not deleting.
+        assertTrue(runBlocking { container.itemRepository.getItem(id) } != null)
+    }
+
+    @Test
     fun itemEditedToHaveNoReminder_postsNothing() {
         val id = saveItem(expiresInDays = 2, daysBefore = 2)
         runBlocking {

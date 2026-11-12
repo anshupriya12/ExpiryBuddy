@@ -24,7 +24,9 @@ class DestinationsTest {
     @Test
     fun routePatterns_doNotOverlap() {
         val patterns = listOf(
+            Destinations.ONBOARDING,
             Destinations.HOME,
+            Destinations.ALL_ITEMS,
             Destinations.SETTINGS,
             Destinations.DETAILS,
             Destinations.EDIT,

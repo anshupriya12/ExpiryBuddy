@@ -7,7 +7,9 @@ import androidx.compose.ui.res.stringResource
 import com.expirybuddy.app.R
 import com.expirybuddy.app.domain.expiry.ExpiryStatus
 import com.expirybuddy.app.domain.model.ItemCategory
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -58,5 +60,12 @@ fun expiryCountdownText(daysUntilExpiry: Long): String {
 fun reminderLabel(daysBefore: Int?): String = when (daysBefore) {
     null -> stringResource(R.string.reminder_none)
     0 -> stringResource(R.string.reminder_on_day)
+    7 -> stringResource(R.string.reminder_one_week)
+    14 -> stringResource(R.string.reminder_two_weeks)
     else -> pluralStringResource(R.plurals.reminder_days_before, daysBefore, daysBefore)
 }
+
+/** A real moment (like "used on") shown as a date in the user's current time zone. */
+@Composable
+fun formatInstantDate(instant: Instant): String =
+    formatDate(instant.atZone(ZoneId.systemDefault()).toLocalDate())
