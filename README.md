@@ -23,8 +23,7 @@ third-party service.
 
 ### Categories
 
-Food, Medication, Cosmetics and Other. (Earlier builds also had Document and Household; any saved
-item in those became *Other* when the database was upgraded. Nothing was deleted.)
+Food, Medication, Cosmetics and Other. 
 
 ### One use-by deadline
 
