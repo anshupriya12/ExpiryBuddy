@@ -67,6 +67,7 @@ import com.expirybuddy.app.ui.util.categoryLabel
 import com.expirybuddy.app.ui.util.formatDate
 import com.expirybuddy.app.ui.util.formatInstantDate
 import com.expirybuddy.app.ui.util.formatMinuteOfDay
+import com.expirybuddy.app.ui.util.storageTypeLabel
 import com.expirybuddy.app.ui.util.useWithinLabel
 import com.expirybuddy.app.ExpiryBuddyApp
 import androidx.compose.ui.platform.LocalContext
@@ -239,6 +240,10 @@ private fun ItemInfo(found: DetailsUiState.Found, modifier: Modifier = Modifier)
                     stringResource(R.string.details_use_within),
                     useWithinLabel(amount, item.useWithinUnit),
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            item.storageType?.let { type ->
+                InfoRow(AppIcons.Box, stringResource(R.string.details_storage_type), storageTypeLabel(type))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             item.storageInstructions?.let { storage ->

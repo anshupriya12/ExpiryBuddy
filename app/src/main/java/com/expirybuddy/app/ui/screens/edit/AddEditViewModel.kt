@@ -11,6 +11,7 @@ import com.expirybuddy.app.domain.model.ItemCategory
 import com.expirybuddy.app.domain.expiry.UseByCalculator
 import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.model.ReminderOptions
+import com.expirybuddy.app.domain.model.StorageType
 import com.expirybuddy.app.domain.validation.CustomReminderError
 import com.expirybuddy.app.domain.validation.DateError
 import com.expirybuddy.app.domain.validation.UseWithinError
@@ -43,6 +44,9 @@ data class AddEditUiState(
     val useWithinUnit: UseWithinUnit = UseWithinUnit.DAYS,
     /** True while [useByDate] is the calculated one, so the form can say where it came from. */
     val useByCalculated: Boolean = false,
+    /** Optional quick storage choice; null = not specified. */
+    val storageType: StorageType? = null,
+    /** Multiline "additional instructions". */
     val storageInstructions: String = "",
     val notes: String = "",
     /** Days before the use-by date to remind; null = no reminder. Ignored while [reminderIsCustom]. */
@@ -123,6 +127,7 @@ class AddEditViewModel(
                             openedOn = item.openedOn,
                             useWithinText = item.useWithinAmount?.toString().orEmpty(),
                             useWithinUnit = item.useWithinUnit,
+                            storageType = item.storageType,
                             storageInstructions = item.storageInstructions.orEmpty(),
                             notes = item.notes.orEmpty(),
                             reminderDaysBefore = item.reminderDaysBefore,
@@ -172,6 +177,8 @@ class AddEditViewModel(
         ) ?: return state
         return state.copy(useByDate = calculated, useByCalculated = true, dateError = null)
     }
+
+    fun onStorageTypeChange(value: StorageType?) = _uiState.update { it.copy(storageType = value) }
 
     fun onStorageChange(value: String) = _uiState.update {
         it.copy(storageInstructions = value.take(ItemFormValidator.MAX_STORAGE_LENGTH))
@@ -305,6 +312,7 @@ class AddEditViewModel(
             openedOn = current.openedOn,
             useWithinAmount = current.useWithinText.trim().toIntOrNull(),
             useWithinUnit = current.useWithinUnit,
+            storageType = current.storageType,
             storageInstructions = current.storageInstructions.trim().ifBlank { null },
             reminderMinuteOfDay = current.reminderMinuteOfDay,
         )

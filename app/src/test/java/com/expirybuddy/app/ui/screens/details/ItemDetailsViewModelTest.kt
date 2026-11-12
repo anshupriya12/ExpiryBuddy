@@ -32,7 +32,7 @@ class ItemDetailsViewModelTest {
     private val item = ExpiryItem(
         id = 4,
         name = "Passport",
-        category = ItemCategory.DOCUMENT,
+        category = ItemCategory.OTHER,
         expiryDate = LocalDate.of(2030, 1, 1),
         reminderDaysBefore = 7,
         createdAt = Instant.EPOCH,

@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ExpiryItemEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -49,11 +49,26 @@ abstract class ExpiryBuddyDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Version 3 -> 4 (final refinements): optional storage type, and the "document" and "household"
+         * categories are retired. Existing rows keep everything; only their category is rewritten to
+         * "other" (nothing is deleted), and the existing `storageInstructions` text stays as it is.
+         */
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE items ADD COLUMN storageType TEXT")
+                db.execSQL(
+                    "UPDATE items SET category = 'other' " +
+                        "WHERE category NOT IN ('food', 'medication', 'cosmetics', 'other')",
+                )
+            }
+        }
+
         // No fallbackToDestructiveMigration: silently wiping a user's saved items is never
         // acceptable. Schema changes must ship a real Migration.
         fun create(context: Context): ExpiryBuddyDatabase =
             Room.databaseBuilder(context.applicationContext, ExpiryBuddyDatabase::class.java, DATABASE_NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

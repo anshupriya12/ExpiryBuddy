@@ -1,11 +1,13 @@
-package com.expirybuddy.app.ui.screens.edit
+﻿package com.expirybuddy.app.ui.screens.edit
 
+import com.expirybuddy.app.domain.model.StorageType
 import com.expirybuddy.app.domain.validation.UseWithinError
 import com.expirybuddy.app.domain.validation.CustomReminderError
 import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import androidx.lifecycle.SavedStateHandle
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
+import com.expirybuddy.app.domain.model.ReminderOptions
 import com.expirybuddy.app.domain.validation.DateError
 import com.expirybuddy.app.domain.validation.ItemFormValidator
 import com.expirybuddy.app.domain.validation.NameError
@@ -60,7 +62,7 @@ class AddEditViewModelTest {
         assertFalse(state.isLoading)
         assertEquals("", state.name)
         assertNull(state.useByDate)
-        assertEquals(3, state.reminderDaysBefore)
+        assertEquals(ReminderOptions.DEFAULT_DAYS_BEFORE, state.reminderDaysBefore)
     }
 
     @Test
@@ -674,4 +676,130 @@ class AddEditViewModelTest {
         assertTrue(vm.uiState.value.reminderIsCustom)
         assertEquals("7", vm.uiState.value.customReminderText)
     }
+
+    // --- Final refinements: storage and the 1-day default -----------------------------------------
+
+    @Test
+    fun storageIsOptional_aNewItemSavesWithNoTypeAndNoText() {
+        val vm = newViewModel()
+        vm.onNameChange("Rice")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+
+        assertNull(vm.uiState.value.storageType)
+        vm.onSave()
+
+        assertNull(repository.saved.single().storageType)
+        assertNull(repository.saved.single().storageInstructions)
+    }
+
+    @Test
+    fun storageType_andMultilineInstructions_areSavedAndLoadedBack() {
+        val vm = newViewModel()
+        vm.onNameChange("Paneer")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        vm.onStorageTypeChange(StorageType.FROZEN)
+        vm.onStorageChange("Keep tightly sealed.\nStore away from direct sunlight.")
+        vm.onSave()
+
+        val saved = repository.saved.single()
+        assertEquals(StorageType.FROZEN, saved.storageType)
+        assertEquals("Keep tightly sealed.\nStore away from direct sunlight.", saved.storageInstructions)
+
+        val edit = newViewModel(itemId = saved.id).uiState.value
+        assertEquals(StorageType.FROZEN, edit.storageType)
+        assertEquals("Keep tightly sealed.\nStore away from direct sunlight.", edit.storageInstructions)
+    }
+
+    @Test
+    fun eachOfTheThreeStorageTypes_canBeChosen_andCleared() {
+        val vm = newViewModel()
+        StorageType.entries.forEach {
+            vm.onStorageTypeChange(it)
+            assertEquals(it, vm.uiState.value.storageType)
+        }
+        vm.onStorageTypeChange(null)
+        assertNull(vm.uiState.value.storageType)
+    }
+
+    @Test
+    fun typeOnly_andTextOnly_areBothValid() {
+        val typeOnly = newViewModel()
+        typeOnly.onNameChange("Milk")
+        typeOnly.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        typeOnly.onStorageTypeChange(StorageType.REFRIGERATE)
+        typeOnly.onSave()
+        assertEquals(StorageType.REFRIGERATE, repository.saved.single().storageType)
+        assertNull(repository.saved.single().storageInstructions)
+
+        val textOnly = newViewModel()
+        textOnly.onNameChange("Cream")
+        textOnly.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        textOnly.onStorageChange("Follow the package instructions.")
+        textOnly.onSave()
+        val cream = repository.saved.first { it.name == "Cream" }
+        assertNull(cream.storageType)
+        assertEquals("Follow the package instructions.", cream.storageInstructions)
+    }
+
+    @Test
+    fun editingAnItemWithOldStorageText_keepsItUntouched_andLeavesTheTypeEmpty() {
+        val old = existingItem().copy(storageInstructions = "Keep refrigerated")
+        val repo = FakeExpiryItemRepository(listOf(old))
+        val vm = AddEditViewModel(
+            SavedStateHandle(mapOf(Destinations.ITEM_ID_ARG to old.id)), repo, clock, photos, preferences,
+        )
+        assertEquals("Keep refrigerated", vm.uiState.value.storageInstructions)
+        assertNull(vm.uiState.value.storageType)
+
+        vm.onNameChange("Aspirin 2")
+        vm.onSave()
+
+        assertEquals("Keep refrigerated", repo.saved.single().storageInstructions)
+        assertNull(repo.saved.single().storageType)
+    }
+
+    @Test
+    fun changingTheStorageType_whenEditing_isPreserved() {
+        val vm = newViewModel()
+        vm.onNameChange("Juice")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        vm.onStorageTypeChange(StorageType.AIRTIGHT)
+        vm.onSave()
+        val id = repository.saved.single().id
+
+        val edit = newViewModel(itemId = id)
+        edit.onStorageTypeChange(StorageType.REFRIGERATE)
+        edit.onSave()
+
+        assertEquals(StorageType.REFRIGERATE, repository.saved.single().storageType)
+    }
+
+    @Test
+    fun aNewItem_defaultsToOneDayBefore_whenNothingWasChosenInSettings() {
+        val vm = AddEditViewModel(
+            SavedStateHandle(mapOf(Destinations.ITEM_ID_ARG to Destinations.NO_ITEM_ID)),
+            repository, clock, photos, FakeUserPreferences(),
+        )
+        assertEquals(1, vm.uiState.value.reminderDaysBefore)
+        assertFalse(vm.uiState.value.reminderIsCustom)
+
+        vm.onNameChange("Milk")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        vm.onSave()
+        assertEquals(1, repository.saved.single().reminderDaysBefore)
+    }
+
+    @Test
+    fun anExplicitSettingsChoice_winsOverTheNewDefault_andItemOverridesAreKept() {
+        preferences.defaultReminderDays = 3
+        val vm = newViewModel()
+        assertEquals(3, vm.uiState.value.reminderDaysBefore)
+
+        vm.onNameChange("Paneer")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        vm.onReminderChange(0)
+        vm.onSave()
+        assertEquals(0, repository.saved.single().reminderDaysBefore)
+    }
 }
+

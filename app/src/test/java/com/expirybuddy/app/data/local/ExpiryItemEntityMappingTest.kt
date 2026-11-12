@@ -1,5 +1,6 @@
 package com.expirybuddy.app.data.local
 
+import com.expirybuddy.app.domain.model.StorageType
 import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
@@ -105,5 +106,34 @@ class ExpiryItemEntityMappingTest {
         assertNull(entity.openedOn)
         assertNull(entity.reminderMinuteOfDay)
         assertEquals(item, entity.toDomain())
+    }
+
+    @Test
+    fun storageType_andMultilineInstructions_surviveMapping() {
+        val stored = item.copy(
+            storageType = StorageType.AIRTIGHT,
+            storageInstructions = "Keep sealed.\nAway from sunlight.",
+        )
+        val entity = stored.toEntity()
+        assertEquals("airtight", entity.storageType)
+        assertEquals("Keep sealed.\nAway from sunlight.", entity.storageInstructions)
+        assertEquals(stored, entity.toDomain())
+    }
+
+    @Test
+    fun noStorageType_isNullInTheEntity() {
+        assertNull(item.toEntity().storageType)
+        assertNull(item.toEntity().toDomain().storageType)
+    }
+
+    @Test
+    fun legacyDocumentAndHouseholdRows_readAsOther_withEverythingElseIntact() {
+        listOf("document", "household").forEach { legacy ->
+            val domain = item.toEntity().copy(category = legacy).toDomain()
+            assertEquals(ItemCategory.OTHER, domain.category)
+            assertEquals(item.name, domain.name)
+            assertEquals(item.expiryDate, domain.expiryDate)
+            assertEquals(item.notes, domain.notes)
+        }
     }
 }

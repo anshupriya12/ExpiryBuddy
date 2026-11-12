@@ -8,12 +8,14 @@ enum class ItemCategory(val storageKey: String) {
     FOOD("food"),
     MEDICATION("medication"),
     COSMETICS("cosmetics"),
-    DOCUMENT("document"),
-    HOUSEHOLD("household"),
     OTHER("other");
 
     companion object {
-        /** Unknown or legacy keys fall back to [OTHER] instead of crashing. */
+        /**
+         * Unknown or legacy keys fall back to [OTHER] instead of crashing. This covers the removed
+         * "document" and "household" categories: old rows are also rewritten to "other" by
+         * `MIGRATION_3_4`, and this fallback keeps reading safe either way.
+         */
         fun fromStorageKey(key: String?): ItemCategory =
             entries.firstOrNull { it.storageKey == key } ?: OTHER
     }

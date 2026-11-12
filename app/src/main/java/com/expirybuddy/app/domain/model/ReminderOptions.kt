@@ -9,7 +9,7 @@ object ReminderOptions {
     val PRESETS: List<Int?> = listOf(null, 0, 1, 2, 3)
 
     /** Pre-selected for new items until the user picks another default in Settings. */
-    const val DEFAULT_DAYS_BEFORE = 3
+    const val DEFAULT_DAYS_BEFORE = 1
 
     const val MAX_CUSTOM_DAYS = 365
 

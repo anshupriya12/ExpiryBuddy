@@ -56,6 +56,8 @@ import com.expirybuddy.app.R
 import com.expirybuddy.app.domain.model.ItemCategory
 import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.model.ReminderOptions
+import com.expirybuddy.app.domain.model.StorageType
+import com.expirybuddy.app.ui.util.storageTypeLabel
 import com.expirybuddy.app.ui.theme.Spacing
 import com.expirybuddy.app.ui.util.DatePickerMillis
 import com.expirybuddy.app.ui.util.categoryLabel
@@ -467,5 +469,24 @@ fun ReminderTimePickerDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
+    )
+}
+
+/** Optional storage type: "Not specified" or Refrigerate, Frozen, Airtight. `null` means not specified. */
+@Composable
+fun StorageTypeSelector(
+    selected: StorageType?,
+    onSelected: (StorageType?) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = stringResource(R.string.field_storage_type),
+) {
+    val options: List<StorageType?> = listOf<StorageType?>(null) + StorageType.entries
+    MenuField(
+        label = label,
+        selected = selected,
+        options = options,
+        optionText = { storageTypeLabel(it) },
+        optionIcon = { AppIcons.Box },
+        onSelected = onSelected,
     )
 }

@@ -79,7 +79,11 @@ class MigrationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         val db = Room.databaseBuilder(context, ExpiryBuddyDatabase::class.java, TEST_DB)
-            .addMigrations(ExpiryBuddyDatabase.MIGRATION_1_2, ExpiryBuddyDatabase.MIGRATION_2_3)
+            .addMigrations(
+                ExpiryBuddyDatabase.MIGRATION_1_2,
+                ExpiryBuddyDatabase.MIGRATION_2_3,
+                ExpiryBuddyDatabase.MIGRATION_3_4,
+            )
             .build()
         try {
             val milk = db.itemDao().getById(1)!!.toDomain()
@@ -176,6 +180,7 @@ class MigrationTest {
             .addMigrations(
                 ExpiryBuddyDatabase.MIGRATION_1_2,
                 ExpiryBuddyDatabase.MIGRATION_2_3,
+                ExpiryBuddyDatabase.MIGRATION_3_4,
             )
             .build()
         try {
@@ -197,6 +202,78 @@ class MigrationTest {
             db.itemDao().update(updated.toEntity())
             val again = db.itemDao().getById(1)!!.toDomain()
             assertEquals(updated, again)
+        } finally {
+            db.close()
+            context.deleteDatabase(TEST_DB)
+        }
+    }
+
+    // --- Version 3 -> 4 (final refinements) -------------------------------------------------------
+
+    private fun createVersion3WithAllCategories(name: String) {
+        helper.createDatabase(name, 3).apply {
+            val cats = listOf("food", "medication", "cosmetics", "document", "household", "other")
+            cats.forEachIndexed { i, c ->
+                execSQL(
+                    "INSERT INTO items (id, name, category, expiryDate, notes, reminderDaysBefore, createdAt, photoUri, updatedAt, usedAt, " +
+                        "openedOn, useWithinAmount, useWithinUnit, storageInstructions, reminderMinuteOfDay) " +
+                        "VALUES (${i + 1}, 'item-$c', '$c', $epochDay, 'note-$c', 2, 1700000000000, NULL, 1700000000000, NULL, " +
+                        "NULL, NULL, NULL, 'Keep refrigerated', ${if (i == 0) "1170" else "NULL"})",
+                )
+            }
+            close()
+        }
+    }
+
+    @Test
+    fun migrate3To4_mapsDocumentAndHouseholdToOther_andKeepsEverythingElse() {
+        createVersion3WithAllCategories(TEST_DB)
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, ExpiryBuddyDatabase.MIGRATION_3_4)
+
+        db.query(
+            "SELECT id, name, category, notes, reminderDaysBefore, storageInstructions, reminderMinuteOfDay, storageType " +
+                "FROM items ORDER BY id",
+        ).use { c ->
+            assertEquals("no row is deleted", 6, c.count)
+            val expectedCategory = listOf("food", "medication", "cosmetics", "other", "other", "other")
+            val names = listOf("food", "medication", "cosmetics", "document", "household", "other")
+            var i = 0
+            while (c.moveToNext()) {
+                assertEquals("item-${names[i]}", c.getString(1))
+                assertEquals(expectedCategory[i], c.getString(2))
+                assertEquals("note-${names[i]}", c.getString(3))
+                assertEquals(2, c.getInt(4))
+                assertEquals("existing storage text is kept", "Keep refrigerated", c.getString(5))
+                assertEquals(i == 0, !c.isNull(6))
+                assertEquals("no storage type yet", true, c.isNull(7))
+                i++
+            }
+        }
+    }
+
+    @Test
+    fun migrate1To4_runsAllStepsAndOldItemsOpenWithRoom() = runBlocking {
+        createVersion1WithTwoItems(TEST_DB)
+        helper.runMigrationsAndValidate(
+            TEST_DB, 4, true,
+            ExpiryBuddyDatabase.MIGRATION_1_2, ExpiryBuddyDatabase.MIGRATION_2_3, ExpiryBuddyDatabase.MIGRATION_3_4,
+        ).close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        val db = Room.databaseBuilder(context, ExpiryBuddyDatabase::class.java, TEST_DB)
+            .addMigrations(
+                ExpiryBuddyDatabase.MIGRATION_1_2,
+                ExpiryBuddyDatabase.MIGRATION_2_3,
+                ExpiryBuddyDatabase.MIGRATION_3_4,
+            )
+            .build()
+        try {
+            val passport = db.itemDao().getById(2)!!.toDomain()
+            assertEquals("Passport", passport.name)
+            assertEquals(ItemCategory.OTHER, passport.category)
+            assertNull(passport.storageType)
+            assertEquals(3, db.itemDao().getById(1)!!.toDomain().reminderDaysBefore)
         } finally {
             db.close()
             context.deleteDatabase(TEST_DB)

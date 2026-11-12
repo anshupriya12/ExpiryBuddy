@@ -9,6 +9,7 @@ import com.expirybuddy.app.domain.expiry.ExpiryStatus
 import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.reminder.ReminderCalculator
 import com.expirybuddy.app.domain.model.ItemCategory
+import com.expirybuddy.app.domain.model.StorageType
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -31,8 +32,6 @@ fun categoryLabel(category: ItemCategory): String = stringResource(
         ItemCategory.FOOD -> R.string.category_food
         ItemCategory.MEDICATION -> R.string.category_medication
         ItemCategory.COSMETICS -> R.string.category_cosmetics
-        ItemCategory.DOCUMENT -> R.string.category_document
-        ItemCategory.HOUSEHOLD -> R.string.category_household
         ItemCategory.OTHER -> R.string.category_other
     },
 )
@@ -88,4 +87,14 @@ fun useWithinLabel(amount: Int, unit: UseWithinUnit): String = pluralStringResou
     if (unit == UseWithinUnit.DAYS) R.plurals.details_use_within_days else R.plurals.details_use_within_months,
     amount,
     amount,
+)
+
+@Composable
+fun storageTypeLabel(type: StorageType?): String = stringResource(
+    when (type) {
+        null -> R.string.storage_type_none
+        StorageType.REFRIGERATE -> R.string.storage_type_refrigerate
+        StorageType.FROZEN -> R.string.storage_type_frozen
+        StorageType.AIRTIGHT -> R.string.storage_type_airtight
+    },
 )

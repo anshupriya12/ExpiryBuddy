@@ -15,7 +15,9 @@ import java.time.LocalDate
  * @property openedOn optional date the product was opened. With [useWithinAmount] it is how the
  * use-by date can be worked out; the use-by date itself stays editable.
  * @property useWithinAmount optional duration after opening, in [useWithinUnit].
- * @property storageInstructions optional text such as "Keep refrigerated".
+ * @property storageType optional quick choice: refrigerate, frozen or airtight.
+ * @property storageInstructions optional free text ("additional instructions"), multiline. Text
+ * saved before the storage type existed stays here unchanged.
  * @property reminderMinuteOfDay this item's reminder time in minutes after midnight (0..1439), or
  * null to follow the default notification time from Settings.
  * @property reminderDaysBefore days before [expiryDate] to remind (0 = on the day itself);
@@ -42,6 +44,7 @@ data class ExpiryItem(
     val useWithinAmount: Int? = null,
     val useWithinUnit: UseWithinUnit = UseWithinUnit.DAYS,
     val storageInstructions: String? = null,
+    val storageType: StorageType? = null,
     val reminderMinuteOfDay: Int? = null,
 ) {
     val isUsed: Boolean get() = usedAt != null

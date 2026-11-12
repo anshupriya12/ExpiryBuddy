@@ -31,7 +31,7 @@ class HomeSectionsBuilderTest {
     private val sample = listOf(
         item(1, "old milk", -5),
         item(2, "eggs", 3),
-        item(3, "passport", 400, ItemCategory.DOCUMENT),
+        item(3, "passport", 400, ItemCategory.OTHER),
         item(4, "yogurt", 0),
         item(5, "stale bread", -1),
         item(6, "rice", 8),
@@ -108,7 +108,7 @@ class HomeSectionsBuilderTest {
 
     @Test
     fun categoryFilter_keepsOnlyThatCategory() {
-        val sections = HomeSectionsBuilder.build(sample, ItemFilter(category = ItemCategory.DOCUMENT), today)
+        val sections = HomeSectionsBuilder.build(sample, ItemFilter(category = ItemCategory.OTHER), today)
 
         assertEquals(listOf("passport"), names(sections.upcoming))
         assertEquals(1, sections.visibleCount)

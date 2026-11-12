@@ -34,7 +34,7 @@ data class FormValidation(
 object ItemFormValidator {
     const val MAX_NAME_LENGTH = 80
     const val MAX_NOTES_LENGTH = 500
-    const val MAX_STORAGE_LENGTH = 200
+    const val MAX_STORAGE_LENGTH = 500
 
     fun validate(
         name: String,

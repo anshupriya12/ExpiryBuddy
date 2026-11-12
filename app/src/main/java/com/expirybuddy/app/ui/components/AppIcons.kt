@@ -58,10 +58,6 @@ object AppIcons {
         outlined("Document", "M6 3h8l4 4v14H6z", "M14 3v4h4", "M9 12h6", "M9 16h6")
     }
 
-    val Household: ImageVector by lazy {
-        outlined("Household", "M3 11l9-8 9 8", "M5 10v10h14V10", "M10 20v-6h4v6")
-    }
-
     val Other: ImageVector by lazy {
         outlined("Other", "M6 12h.01", "M12 12h.01", "M18 12h.01", strokeWidth = 2.6f)
     }
@@ -96,7 +92,5 @@ fun categoryIcon(category: ItemCategory): ImageVector = when (category) {
     ItemCategory.FOOD -> AppIcons.Food
     ItemCategory.MEDICATION -> AppIcons.Medication
     ItemCategory.COSMETICS -> AppIcons.Cosmetics
-    ItemCategory.DOCUMENT -> AppIcons.Document
-    ItemCategory.HOUSEHOLD -> AppIcons.Household
     ItemCategory.OTHER -> AppIcons.Other
 }

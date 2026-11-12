@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
+import com.expirybuddy.app.domain.model.StorageType
 import java.time.Instant
 import java.time.LocalDate
 
@@ -42,6 +43,8 @@ data class ExpiryItemEntity(
     val storageInstructions: String? = null,
     /** Added in schema version 3. Per-item reminder time in minutes after midnight; null = follow the default. */
     val reminderMinuteOfDay: Int? = null,
+    /** Added in schema version 4. [com.expirybuddy.app.domain.model.StorageType.storageKey]; null = not specified. */
+    val storageType: String? = null,
 )
 
 fun ExpiryItemEntity.toDomain(): ExpiryItem = ExpiryItem(
@@ -60,6 +63,7 @@ fun ExpiryItemEntity.toDomain(): ExpiryItem = ExpiryItem(
     useWithinUnit = UseWithinUnit.fromStorageKey(useWithinUnit),
     storageInstructions = storageInstructions,
     reminderMinuteOfDay = reminderMinuteOfDay,
+    storageType = StorageType.fromStorageKey(storageType),
 )
 
 fun ExpiryItem.toEntity(): ExpiryItemEntity = ExpiryItemEntity(
@@ -78,4 +82,5 @@ fun ExpiryItem.toEntity(): ExpiryItemEntity = ExpiryItemEntity(
     useWithinUnit = useWithinUnit.storageKey.takeIf { useWithinAmount != null },
     storageInstructions = storageInstructions,
     reminderMinuteOfDay = reminderMinuteOfDay,
+    storageType = storageType?.storageKey,
 )

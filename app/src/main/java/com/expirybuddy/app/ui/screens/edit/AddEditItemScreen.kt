@@ -48,6 +48,7 @@ import com.expirybuddy.app.ui.components.AddItemFormField
 import com.expirybuddy.app.ui.components.AdvanceNoticeSelector
 import com.expirybuddy.app.ui.components.CustomDaysField
 import com.expirybuddy.app.ui.components.DateSelector
+import com.expirybuddy.app.ui.components.StorageTypeSelector
 import com.expirybuddy.app.ui.components.TimeSelector
 import com.expirybuddy.app.ui.components.UseWithinField
 import com.expirybuddy.app.ui.util.formatDate
@@ -253,11 +254,16 @@ private fun ItemForm(
             errorText = state.useWithinError?.let { stringResource(R.string.error_use_within) },
         )
 
+        StorageTypeSelector(selected = state.storageType, onSelected = viewModel::onStorageTypeChange)
+
         AddItemFormField(
             label = stringResource(R.string.field_storage),
             value = state.storageInstructions,
             onValueChange = viewModel::onStorageChange,
             placeholder = stringResource(R.string.field_storage_hint),
+            singleLine = false,
+            minLines = 3,
+            imeAction = ImeAction.Default,
         )
 
         AdvanceNoticeSelector(

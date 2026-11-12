@@ -105,4 +105,11 @@ class SettingsViewModelTest {
 
         assertTrue(scheduler.calls.isEmpty())
     }
+
+    @Test
+    fun theBuiltInDefault_isOneDayBefore() {
+        assertEquals(1, com.expirybuddy.app.domain.model.ReminderOptions.DEFAULT_DAYS_BEFORE)
+        val fresh = FakeUserPreferences()
+        assertEquals(1, SettingsViewModel(fresh, FakeExpiryItemRepository(), scheduler).defaultReminderDays.value)
+    }
 }

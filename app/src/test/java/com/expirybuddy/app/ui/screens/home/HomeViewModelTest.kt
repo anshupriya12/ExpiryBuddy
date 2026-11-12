@@ -39,7 +39,7 @@ class HomeViewModelTest {
     private val sample = listOf(
         item(1, "old milk", -3),
         item(2, "eggs", 2),
-        item(3, "passport", 300, ItemCategory.DOCUMENT),
+        item(3, "passport", 300, ItemCategory.OTHER),
     )
 
     private fun viewModel(
@@ -94,9 +94,9 @@ class HomeViewModelTest {
     @Test
     fun category_filtersList() = runTest {
         val vm = viewModel()
-        vm.onCategorySelected(ItemCategory.DOCUMENT)
+        vm.onCategorySelected(ItemCategory.OTHER)
 
-        val content = vm.content { it.filter.category == ItemCategory.DOCUMENT }
+        val content = vm.content { it.filter.category == ItemCategory.OTHER }
 
         assertEquals(listOf("passport"), content.sections.upcoming.map { it.item.name })
         assertTrue(content.sections.expired.isEmpty())

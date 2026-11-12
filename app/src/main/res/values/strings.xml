@@ -20,8 +20,6 @@
     <string name="category_food">Food</string>
     <string name="category_medication">Medication</string>
     <string name="category_cosmetics">Cosmetics</string>
-    <string name="category_document">Document</string>
-    <string name="category_household">Household</string>
     <string name="category_other">Other</string>
 
     <!-- Reminders -->
@@ -120,8 +118,13 @@
     <string name="unit_months">Months</string>
     <string name="field_unit">Unit</string>
     <string name="error_use_within">Enter a whole number of 1 or more.</string>
-    <string name="field_storage">Storage instructions (optional)</string>
-    <string name="field_storage_hint">e.g. Keep refrigerated</string>
+    <string name="field_storage_type">Storage type (optional)</string>
+    <string name="storage_type_none">Not specified</string>
+    <string name="storage_type_refrigerate">Refrigerate</string>
+    <string name="storage_type_frozen">Frozen</string>
+    <string name="storage_type_airtight">Airtight</string>
+    <string name="field_storage">Additional instructions</string>
+    <string name="field_storage_hint">Describe how this item should be stored...</string>
     <string name="field_notes">Notes (optional)</string>
     <string name="field_notes_hint">e.g. Use it for biryani</string>
     <string name="field_reminder">Remind me</string>
@@ -156,7 +159,8 @@
     <string name="details_use_by_date">Use-by date</string>
     <string name="details_opened_on">Opened on</string>
     <string name="details_use_within">Use within</string>
-    <string name="details_storage">Storage</string>
+    <string name="details_storage_type">Storage type</string>
+    <string name="details_storage">Additional instructions</string>
     <plurals name="details_use_within_days">
         <item quantity="one">%d day after opening</item>
         <item quantity="other">%d days after opening</item>
