@@ -6,6 +6,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.expirybuddy.app.R
 import com.expirybuddy.app.domain.expiry.ExpiryStatus
+import com.expirybuddy.app.domain.expiry.UseWithinUnit
+import com.expirybuddy.app.domain.reminder.ReminderCalculator
 import com.expirybuddy.app.domain.model.ItemCategory
 import java.time.Instant
 import java.time.LocalDate
@@ -44,15 +46,15 @@ fun statusLabel(status: ExpiryStatus): String = stringResource(
     },
 )
 
-/** "Expires today", "Expires in 5 days", "Expired 3 days ago"... for a day count from [ExpiryClassifier.daysUntil]. */
+/** "Use by today", "Use within 5 days", "Past use-by date by 3 days"... for a day count from [ExpiryClassifier.daysUntil]. */
 @Composable
 fun expiryCountdownText(daysUntilExpiry: Long): String {
     val days = daysUntilExpiry.toInt()
     return when {
         days < 0 -> pluralStringResource(R.plurals.status_expired_days_ago, -days, -days)
-        days == 0 -> stringResource(R.string.status_expires_today)
-        days == 1 -> stringResource(R.string.status_expires_tomorrow)
-        else -> pluralStringResource(R.plurals.status_expires_in_days, days, days)
+        days == 0 -> stringResource(R.string.status_use_today)
+        days == 1 -> stringResource(R.string.status_use_tomorrow)
+        else -> pluralStringResource(R.plurals.status_use_in_days, days, days)
     }
 }
 
@@ -60,8 +62,6 @@ fun expiryCountdownText(daysUntilExpiry: Long): String {
 fun reminderLabel(daysBefore: Int?): String = when (daysBefore) {
     null -> stringResource(R.string.reminder_none)
     0 -> stringResource(R.string.reminder_on_day)
-    7 -> stringResource(R.string.reminder_one_week)
-    14 -> stringResource(R.string.reminder_two_weeks)
     else -> pluralStringResource(R.plurals.reminder_days_before, daysBefore, daysBefore)
 }
 
@@ -69,3 +69,23 @@ fun reminderLabel(daysBefore: Int?): String = when (daysBefore) {
 @Composable
 fun formatInstantDate(instant: Instant): String =
     formatDate(instant.atZone(ZoneId.systemDefault()).toLocalDate())
+
+/** Locale-aware time of day such as "7:30 PM" or "19:30" (follows the phone's 12/24-hour setting). */
+@Composable
+fun formatMinuteOfDay(minuteOfDay: Int): String {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val is24 = android.text.format.DateFormat.is24HourFormat(context)
+    val time = ReminderCalculator.timeOfMinutes(minuteOfDay)
+    return remember(minuteOfDay, is24) {
+        val pattern = if (is24) DateTimeFormatter.ofPattern("HH:mm") else DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+        pattern.withLocale(Locale.getDefault()).format(time)
+    }
+}
+
+/** "2 days after opening" / "1 month after opening". */
+@Composable
+fun useWithinLabel(amount: Int, unit: UseWithinUnit): String = pluralStringResource(
+    if (unit == UseWithinUnit.DAYS) R.plurals.details_use_within_days else R.plurals.details_use_within_months,
+    amount,
+    amount,
+)

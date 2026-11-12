@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
 import java.time.Instant
@@ -31,6 +32,16 @@ data class ExpiryItemEntity(
     @ColumnInfo(defaultValue = "0") val updatedAt: Long = 0,
     /** Added in schema version 2. Epoch milliseconds when marked as used; null while active. */
     val usedAt: Long? = null,
+    /** Added in schema version 3. Optional date the product was opened (epoch day via [Converters]). */
+    val openedOn: LocalDate? = null,
+    /** Added in schema version 3. Optional "use within" amount, in [useWithinUnit]. */
+    val useWithinAmount: Int? = null,
+    /** Added in schema version 3. [UseWithinUnit.storageKey]; null when there is no duration. */
+    val useWithinUnit: String? = null,
+    /** Added in schema version 3. Optional storage instructions. */
+    val storageInstructions: String? = null,
+    /** Added in schema version 3. Per-item reminder time in minutes after midnight; null = follow the default. */
+    val reminderMinuteOfDay: Int? = null,
 )
 
 fun ExpiryItemEntity.toDomain(): ExpiryItem = ExpiryItem(
@@ -44,6 +55,11 @@ fun ExpiryItemEntity.toDomain(): ExpiryItem = ExpiryItem(
     photoUri = photoUri,
     updatedAt = Instant.ofEpochMilli(updatedAt),
     usedAt = usedAt?.let(Instant::ofEpochMilli),
+    openedOn = openedOn,
+    useWithinAmount = useWithinAmount,
+    useWithinUnit = UseWithinUnit.fromStorageKey(useWithinUnit),
+    storageInstructions = storageInstructions,
+    reminderMinuteOfDay = reminderMinuteOfDay,
 )
 
 fun ExpiryItem.toEntity(): ExpiryItemEntity = ExpiryItemEntity(
@@ -57,4 +73,9 @@ fun ExpiryItem.toEntity(): ExpiryItemEntity = ExpiryItemEntity(
     photoUri = photoUri,
     updatedAt = updatedAt.toEpochMilli(),
     usedAt = usedAt?.toEpochMilli(),
+    openedOn = openedOn,
+    useWithinAmount = useWithinAmount,
+    useWithinUnit = useWithinUnit.storageKey.takeIf { useWithinAmount != null },
+    storageInstructions = storageInstructions,
+    reminderMinuteOfDay = reminderMinuteOfDay,
 )

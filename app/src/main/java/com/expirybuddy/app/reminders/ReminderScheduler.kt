@@ -18,6 +18,13 @@ interface ReminderScheduler {
      * a time-zone change. Deliberately never cancels: at start-up a reminder may be firing right now.
      */
     fun restore(items: List<ExpiryItem>)
+
+    /**
+     * Re-plans every item's reminder from scratch, replacing or cancelling each one. Used when a
+     * setting that changes reminder times (the default notification time) is edited. Unlike
+     * [restore] it may cancel, because the user has just changed the rules.
+     */
+    fun rescheduleAll(items: List<ExpiryItem>)
 }
 
 object ReminderWork {

@@ -66,6 +66,11 @@ import com.expirybuddy.app.ui.theme.expiryColors
 import com.expirybuddy.app.ui.util.categoryLabel
 import com.expirybuddy.app.ui.util.formatDate
 import com.expirybuddy.app.ui.util.formatInstantDate
+import com.expirybuddy.app.ui.util.formatMinuteOfDay
+import com.expirybuddy.app.ui.util.useWithinLabel
+import com.expirybuddy.app.ExpiryBuddyApp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
 import com.expirybuddy.app.ui.util.reminderLabel
 import kotlinx.coroutines.launch
 import java.time.ZoneId
@@ -222,12 +227,40 @@ private fun ItemInfo(found: DetailsUiState.Found, modifier: Modifier = Modifier)
         if (found.updateFailed) ErrorText(R.string.details_update_failed)
 
         Column {
-            InfoRow(Icons.Outlined.DateRange, stringResource(R.string.details_expiry_date), formatDate(item.expiryDate))
+            InfoRow(Icons.Outlined.DateRange, stringResource(R.string.details_use_by_date), formatDate(item.expiryDate))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            item.openedOn?.let { opened ->
+                InfoRow(Icons.Outlined.DateRange, stringResource(R.string.details_opened_on), formatDate(opened))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            item.useWithinAmount?.let { amount ->
+                InfoRow(
+                    Icons.Outlined.DateRange,
+                    stringResource(R.string.details_use_within),
+                    useWithinLabel(amount, item.useWithinUnit),
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            item.storageInstructions?.let { storage ->
+                InfoRow(AppIcons.Box, stringResource(R.string.details_storage), storage)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            val context = LocalContext.current
+            val defaultMinutes = remember {
+                (context.applicationContext as ExpiryBuddyApp).container.userPreferences.defaultReminderMinutes
+            }
             InfoRow(
                 Icons.Outlined.Notifications,
                 stringResource(R.string.details_reminder),
-                if (item.isUsed) stringResource(R.string.reminder_none) else reminderLabel(item.reminderDaysBefore),
+                if (item.isUsed || item.reminderDaysBefore == null) {
+                    stringResource(R.string.reminder_none)
+                } else {
+                    stringResource(
+                        R.string.details_reminder_value,
+                        reminderLabel(item.reminderDaysBefore),
+                        formatMinuteOfDay(item.reminderMinuteOfDay ?: defaultMinutes),
+                    )
+                },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             InfoRow(

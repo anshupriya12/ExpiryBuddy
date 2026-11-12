@@ -152,4 +152,69 @@ class WorkManagerReminderSchedulerTest {
         // Reminder is 27 days out at 09:00; the delay is within a day of 27 days from now.
         assertTrue("delay was $delayDays days", delayDays in 26.0..28.0)
     }
+
+    // --- V2.2: configurable time of day ---------------------------------------------------------
+
+    private fun schedulerWithDefault(time: java.time.LocalTime) =
+        WorkManagerReminderScheduler(workManager, Clock.systemDefaultZone()) { time }
+
+    private fun delayMillisFor(item: ExpiryItem, defaultTime: java.time.LocalTime): Long? =
+        com.expirybuddy.app.domain.reminder.ReminderCalculator
+            .delayUntilReminder(item, java.time.ZonedDateTime.now(), defaultTime)?.toMillis()
+
+    @Test
+    fun theJobDelay_followsTheConfiguredDefaultTime() {
+        val item = item(expiresInDays = 30, daysBefore = 1)
+        val seven = java.time.LocalTime.of(7, 0)
+        val evening = java.time.LocalTime.of(20, 0)
+
+        schedulerWithDefault(seven).schedule(item)
+        val early = enqueued().single().initialDelayMillis
+        schedulerWithDefault(evening).schedule(item)
+        val late = enqueued().single().initialDelayMillis
+
+        assertEquals("still exactly one job", 1, enqueued().size)
+        val thirteenHours = 13 * 60 * 60 * 1000L
+        assertTrue("20:00 is 13h after 07:00 (was ${late - early})", kotlin.math.abs((late - early) - thirteenHours) < 60_000)
+        assertEquals(delayMillisFor(item, evening)!!.toDouble(), late.toDouble(), 120_000.0)
+    }
+
+    @Test
+    fun anItemsOwnTime_winsOverTheDefault() {
+        val own = item(expiresInDays = 30, daysBefore = 1).copy(reminderMinuteOfDay = 19 * 60 + 30)
+
+        schedulerWithDefault(java.time.LocalTime.of(7, 0)).schedule(own)
+
+        val expected = delayMillisFor(own, java.time.LocalTime.of(7, 0))!!
+        assertEquals(expected.toDouble(), enqueued().single().initialDelayMillis.toDouble(), 120_000.0)
+        val other = delayMillisFor(own.copy(reminderMinuteOfDay = null), java.time.LocalTime.of(7, 0))!!
+        assertTrue("own time differs from the default's delay", kotlin.math.abs(expected - other) > 60 * 60 * 1000L)
+    }
+
+    @Test
+    fun rescheduleAll_replacesEachJobOnce_andCancelsTheOnesThatNoLongerApply() {
+        val a = item(expiresInDays = 30, daysBefore = 1)
+        scheduler.schedule(a)
+        val before = enqueued().single()
+
+        scheduler.rescheduleAll(listOf(a))
+        scheduler.rescheduleAll(listOf(a))
+
+        assertEquals("no duplicates after repeated rescheduling", 1, enqueued().size)
+        assertTrue("replaced", enqueued().single().id != before.id)
+
+        scheduler.rescheduleAll(listOf(a.copy(reminderDaysBefore = null)))
+        assertTrue(enqueued().isEmpty())
+    }
+
+    @Test
+    fun aReminderTimeEarlierToday_isNotScheduled() {
+        val now = java.time.LocalTime.now()
+        // Due today with "on the day": a time one minute ago has passed, so nothing is enqueued.
+        val minuteAgo = (now.hour * 60 + now.minute - 1).coerceAtLeast(0)
+        if (now.hour * 60 + now.minute == 0) return // cannot test a past time at 00:00
+        scheduler.schedule(item(expiresInDays = 0, daysBefore = 0).copy(reminderMinuteOfDay = minuteAgo))
+
+        assertTrue(enqueued().isEmpty())
+    }
 }

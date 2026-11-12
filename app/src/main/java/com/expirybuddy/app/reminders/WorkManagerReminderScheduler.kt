@@ -8,6 +8,7 @@ import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.reminder.ReminderCalculator
 import java.time.Clock
 import java.time.Duration
+import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
@@ -21,10 +22,12 @@ import java.util.concurrent.TimeUnit
 class WorkManagerReminderScheduler(
     private val workManager: WorkManager,
     private val clock: Clock,
+    /** The user's default notification time, read each time so a change in Settings applies at once. */
+    private val defaultTime: () -> LocalTime = { ReminderCalculator.DEFAULT_REMINDER_TIME },
 ) : ReminderScheduler {
 
     override fun schedule(item: ExpiryItem) {
-        val delay = ReminderCalculator.delayUntilReminder(item, ZonedDateTime.now(clock))
+        val delay = ReminderCalculator.delayUntilReminder(item, ZonedDateTime.now(clock), defaultTime())
         if (delay == null) {
             cancel(item.id)
         } else {
@@ -38,9 +41,14 @@ class WorkManagerReminderScheduler(
 
     override fun restore(items: List<ExpiryItem>) {
         val now = ZonedDateTime.now(clock)
+        val time = defaultTime()
         items.forEach { item ->
-            ReminderCalculator.delayUntilReminder(item, now)?.let { enqueue(item.id, it) }
+            ReminderCalculator.delayUntilReminder(item, now, time)?.let { enqueue(item.id, it) }
         }
+    }
+
+    override fun rescheduleAll(items: List<ExpiryItem>) {
+        items.forEach(::schedule)
     }
 
     private fun enqueue(itemId: Long, delay: Duration) {

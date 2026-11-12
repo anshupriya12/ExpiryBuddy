@@ -17,8 +17,8 @@ import org.junit.runner.RunWith
 import java.time.LocalDate
 
 /**
- * Proves the V2 redesign does not lose anyone's saved items: a real version 1 database (built from the
- * exported schema) is migrated to version 2 and its rows must come through unchanged.
+ * Proves schema upgrades never lose anyone's saved items: real version 1 and 2 databases (built from the
+ * exported schemas) are migrated forward and their rows must come through unchanged.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -79,7 +79,7 @@ class MigrationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         val db = Room.databaseBuilder(context, ExpiryBuddyDatabase::class.java, TEST_DB)
-            .addMigrations(ExpiryBuddyDatabase.MIGRATION_1_2)
+            .addMigrations(ExpiryBuddyDatabase.MIGRATION_1_2, ExpiryBuddyDatabase.MIGRATION_2_3)
             .build()
         try {
             val milk = db.itemDao().getById(1)!!.toDomain()
@@ -99,5 +99,107 @@ class MigrationTest {
 
     private companion object {
         const val TEST_DB = "migration-test"
+    }
+
+    // --- Version 2 -> 3 (V2.2) --------------------------------------------------------------------
+
+    private fun createVersion2WithItems(name: String) {
+        helper.createDatabase(name, 2).apply {
+            execSQL(
+                "INSERT INTO items (id, name, category, expiryDate, notes, reminderDaysBefore, createdAt, photoUri, updatedAt, usedAt) " +
+                    "VALUES (1, 'Paneer', 'food', $epochDay, 'fresh', 1, 1700000000123, 'file:///photos/p.jpg', 1700000500000, NULL)",
+            )
+            execSQL(
+                "INSERT INTO items (id, name, category, expiryDate, notes, reminderDaysBefore, createdAt, photoUri, updatedAt, usedAt) " +
+                    "VALUES (2, 'Old cream', 'cosmetics', ${epochDay - 30}, NULL, NULL, 1700000999000, NULL, 1700000999000, 1700001999000)",
+            )
+            close()
+        }
+    }
+
+    @Test
+    fun migrate2To3_keepsEveryExistingValue_andAddsNullableColumns() {
+        createVersion2WithItems(TEST_DB)
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 3, true, ExpiryBuddyDatabase.MIGRATION_2_3)
+
+        db.query(
+            "SELECT id, name, category, expiryDate, notes, reminderDaysBefore, createdAt, photoUri, updatedAt, usedAt, " +
+                "openedOn, useWithinAmount, useWithinUnit, storageInstructions, reminderMinuteOfDay FROM items ORDER BY id",
+        ).use { c ->
+            assertEquals(2, c.count)
+
+            c.moveToFirst()
+            assertEquals("Paneer", c.getString(1))
+            assertEquals("food", c.getString(2))
+            assertEquals("the old date is now the use-by date, unchanged", epochDay, c.getLong(3))
+            assertEquals("fresh", c.getString(4))
+            assertEquals("reminder choice kept", 1, c.getInt(5))
+            assertEquals(1700000000123L, c.getLong(6))
+            assertEquals("photo kept", "file:///photos/p.jpg", c.getString(7))
+            assertEquals(1700000500000L, c.getLong(8))
+            assertEquals(true, c.isNull(9))
+            for (col in 10..14) assertEquals("new column $col starts empty", true, c.isNull(col))
+
+            c.moveToNext()
+            assertEquals("Old cream", c.getString(1))
+            assertEquals("used state kept", 1700001999000L, c.getLong(9))
+            assertEquals(true, c.isNull(5))
+            for (col in 10..14) assertEquals(true, c.isNull(col))
+        }
+    }
+
+    @Test
+    fun migrate1To3_runsBothStepsInOrder() {
+        createVersion1WithTwoItems(TEST_DB)
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB, 3, true, ExpiryBuddyDatabase.MIGRATION_1_2, ExpiryBuddyDatabase.MIGRATION_2_3,
+        )
+
+        db.query("SELECT name, reminderDaysBefore, updatedAt, reminderMinuteOfDay FROM items ORDER BY id").use { c ->
+            assertEquals(2, c.count)
+            c.moveToFirst()
+            assertEquals("Milk", c.getString(0))
+            assertEquals(3, c.getInt(1))
+            assertEquals(1700000000123L, c.getLong(2))
+            assertEquals(true, c.isNull(3))
+        }
+    }
+
+    @Test
+    fun migratedV2Database_opensWithRoom_oldItemsFollowTheDefaultTime_andNewFieldsCanBeSaved() = runBlocking {
+        createVersion2WithItems(TEST_DB)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        val db = Room.databaseBuilder(context, ExpiryBuddyDatabase::class.java, TEST_DB)
+            .addMigrations(
+                ExpiryBuddyDatabase.MIGRATION_1_2,
+                ExpiryBuddyDatabase.MIGRATION_2_3,
+            )
+            .build()
+        try {
+            val paneer = db.itemDao().getById(1)!!.toDomain()
+            assertEquals(LocalDate.of(2026, 8, 1), paneer.expiryDate)
+            assertEquals(1, paneer.reminderDaysBefore)
+            assertEquals("file:///photos/p.jpg", paneer.photoUri)
+            assertNull("follows the default notification time", paneer.reminderMinuteOfDay)
+            assertNull(paneer.openedOn)
+            assertNull(paneer.storageInstructions)
+            assertEquals(true, db.itemDao().getById(2)!!.toDomain().isUsed)
+
+            val updated = paneer.copy(
+                openedOn = LocalDate.of(2026, 7, 30),
+                useWithinAmount = 2,
+                storageInstructions = "Fridge",
+                reminderMinuteOfDay = 19 * 60,
+            )
+            db.itemDao().update(updated.toEntity())
+            val again = db.itemDao().getById(1)!!.toDomain()
+            assertEquals(updated, again)
+        } finally {
+            db.close()
+            context.deleteDatabase(TEST_DB)
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.expirybuddy.app.data.prefs
 
 import android.content.Context
 import com.expirybuddy.app.domain.model.ReminderOptions
+import com.expirybuddy.app.domain.reminder.ReminderCalculator
 
 /**
  * Small local settings that are not item data. No sync, no account: just this device.
@@ -12,6 +13,9 @@ interface UserPreferences {
 
     /** Reminder pre-selected for new items: days before expiry, or null for "no reminder". */
     var defaultReminderDays: Int?
+
+    /** Default notification time, minutes after midnight (9:00 until the user changes it). */
+    var defaultReminderMinutes: Int
 }
 
 class SharedPreferencesUserPreferences(context: Context) : UserPreferences {
@@ -29,7 +33,13 @@ class SharedPreferencesUserPreferences(context: Context) : UserPreferences {
         }
         set(value) = prefs.edit().putInt(KEY_DEFAULT_REMINDER, value ?: NO_REMINDER).apply()
 
+    override var defaultReminderMinutes: Int
+        get() = prefs.getInt(KEY_DEFAULT_TIME, DEFAULT_MINUTES).coerceIn(0, ReminderCalculator.MINUTES_PER_DAY - 1)
+        set(value) = prefs.edit().putInt(KEY_DEFAULT_TIME, value.coerceIn(0, ReminderCalculator.MINUTES_PER_DAY - 1)).apply()
+
     private companion object {
+        const val KEY_DEFAULT_TIME = "default_reminder_minutes"
+        val DEFAULT_MINUTES = ReminderCalculator.minutesOf(ReminderCalculator.DEFAULT_REMINDER_TIME)
         // Same file as NotificationPrefs, which uses a different key.
         const val FILE = "expiry_buddy_prefs"
         const val KEY_ONBOARDING_DONE = "onboarding_completed"

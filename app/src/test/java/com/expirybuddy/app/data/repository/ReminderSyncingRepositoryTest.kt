@@ -192,4 +192,64 @@ class ReminderSyncingRepositoryTest {
         assertEquals(ReminderWork.uniqueName(5), ReminderWork.uniqueName(5))
         assertTrue(ReminderWork.uniqueName(5) != ReminderWork.uniqueName(6))
     }
+
+    // --- V2.2: preferences and edits ------------------------------------------------------------
+
+    @Test
+    fun editingTheUseByDate_replacesTheReminder_withoutAddingAnotherJob() = runTest {
+        val id = repository.save(item(daysBefore = 3))
+
+        repository.save(item(expiry = LocalDate.of(2026, 3, 20), daysBefore = 3, id = id))
+
+        // 17 March 09:00 is 16 days 1 hour after "now": one job, new time.
+        assertEquals(mapOf(ReminderWork.uniqueName(id) to Duration.ofDays(16).plusHours(1)), scheduler.pending)
+    }
+
+    @Test
+    fun changingTheItemNoticeAndTime_replacesTheReminder() = runTest {
+        val id = repository.save(item(daysBefore = 3))
+
+        repository.save(item(daysBefore = 1, id = id).copy(reminderMinuteOfDay = 19 * 60 + 30))
+
+        // 9 March 19:30 is 8 days 11 hours 30 minutes after 1 March 08:00.
+        assertEquals(
+            mapOf(ReminderWork.uniqueName(id) to Duration.ofDays(8).plusHours(11).plusMinutes(30)),
+            scheduler.pending,
+        )
+    }
+
+    @Test
+    fun usesTheDefaultTimeForItemsWithoutTheirOwn() = runTest {
+        scheduler.defaultTime = java.time.LocalTime.of(7, 0)
+
+        val id = repository.save(item(daysBefore = 3))
+
+        // 7 March 07:00 = 5 days 23 hours after now.
+        assertEquals(mapOf(ReminderWork.uniqueName(id) to Duration.ofDays(5).plusHours(23)), scheduler.pending)
+    }
+
+    @Test
+    fun aReminderMomentThatAlreadyPassed_isNotScheduled() = runTest {
+        // Due 2 March, "1 day before" is 1 March; at 07:00 that is before "now" (08:00).
+        val id = repository.save(item(expiry = LocalDate.of(2026, 3, 2), daysBefore = 1).copy(reminderMinuteOfDay = 7 * 60))
+
+        assertTrue(scheduler.pending.isEmpty())
+        assertNotNull(delegate.getItem(id))
+    }
+
+    @Test
+    fun savingTheSameItemRepeatedly_neverCreatesDuplicateJobs() = runTest {
+        val id = repository.save(item())
+        repeat(5) { repository.save(item(id = id)) }
+
+        assertEquals(1, scheduler.pending.size)
+    }
+
+    @Test
+    fun deletingAfterV22Edits_cancelsItsReminder() = runTest {
+        val id = repository.save(item())
+        repository.delete(id)
+
+        assertTrue(scheduler.pending.isEmpty())
+    }
 }

@@ -1,5 +1,6 @@
 package com.expirybuddy.app.domain.model
 
+import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import java.time.Instant
 import java.time.LocalDate
 
@@ -7,8 +8,16 @@ import java.time.LocalDate
  * An item the user wants to be reminded about.
  *
  * @property id database id; [NEW_ID] (0) for an item that has not been saved yet.
- * @property expiryDate a calendar date with no time zone: "expires on 12 March" means the same
- * day wherever the user is.
+ * @property expiryDate the item's **use-by date**, its one user-facing deadline. The name is kept
+ * internally so no rename or data change is needed: dates saved before V2.2 are simply read as
+ * use-by dates. A calendar date with no time zone: "use by 12 March" means the same day wherever
+ * the user is.
+ * @property openedOn optional date the product was opened. With [useWithinAmount] it is how the
+ * use-by date can be worked out; the use-by date itself stays editable.
+ * @property useWithinAmount optional duration after opening, in [useWithinUnit].
+ * @property storageInstructions optional text such as "Keep refrigerated".
+ * @property reminderMinuteOfDay this item's reminder time in minutes after midnight (0..1439), or
+ * null to follow the default notification time from Settings.
  * @property reminderDaysBefore days before [expiryDate] to remind (0 = on the day itself);
  * null means the user chose no reminder.
  * @property createdAt moment the item was first saved. A real instant, unlike [expiryDate].
@@ -29,6 +38,11 @@ data class ExpiryItem(
     val photoUri: String? = null,
     val updatedAt: Instant = createdAt,
     val usedAt: Instant? = null,
+    val openedOn: LocalDate? = null,
+    val useWithinAmount: Int? = null,
+    val useWithinUnit: UseWithinUnit = UseWithinUnit.DAYS,
+    val storageInstructions: String? = null,
+    val reminderMinuteOfDay: Int? = null,
 ) {
     val isUsed: Boolean get() = usedAt != null
 

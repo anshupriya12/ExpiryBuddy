@@ -207,7 +207,137 @@ class ReminderCalculatorTest {
     }
 
     @Test
-    fun reminderTime_isNineAm() {
-        assertEquals(java.time.LocalTime.of(9, 0), ReminderCalculator.REMINDER_TIME)
+    fun defaultReminderTime_isNineAm() {
+        assertEquals(java.time.LocalTime.of(9, 0), ReminderCalculator.DEFAULT_REMINDER_TIME)
+    }
+
+    // --- V2.2: configurable time of day ------------------------------------------------------
+
+    private fun hm(h: Int, m: Int) = java.time.LocalTime.of(h, m)
+
+    @Test
+    fun specExample_useBy14Nov_oneDayBefore_at1930_remindsOn13Nov_at1930() {
+        val moment = ReminderCalculator.reminderMoment(item(LocalDate.of(2026, 11, 14), 1), hm(19, 30), utc)
+        assertEquals(at("2026-11-13", "19:30"), moment)
+        assertEquals(
+            Duration.ofHours(19).plusMinutes(30),
+            ReminderCalculator.delayUntilReminder(item(LocalDate.of(2026, 11, 14), 1), at("2026-11-13", "00:00"), hm(19, 30)),
+        )
+    }
+
+    @Test
+    fun itemWithoutOwnTime_followsTheDefaultTime() {
+        val it = item(LocalDate.of(2026, 3, 10), 1)
+        assertEquals(hm(7, 0), ReminderCalculator.reminderTime(it, hm(7, 0)))
+        assertEquals(hm(20, 0), ReminderCalculator.reminderTime(it, hm(20, 0)))
+    }
+
+    @Test
+    fun itemOwnTime_overridesTheDefault() {
+        val paneer = item(LocalDate.of(2026, 3, 10), 0).copy(reminderMinuteOfDay = 19 * 60)
+        assertEquals(hm(19, 0), ReminderCalculator.reminderTime(paneer, hm(8, 0)))
+        assertEquals(at("2026-03-10", "19:00"), ReminderCalculator.reminderMoment(paneer, hm(8, 0), utc))
+    }
+
+    @Test
+    fun perItemOverrides_giveDifferentMomentsFromTheSameDefaults() {
+        val default = item(LocalDate.of(2026, 3, 10), 1)
+        val paneer = item(LocalDate.of(2026, 3, 10), 0).copy(reminderMinuteOfDay = 19 * 60)
+        val medicine = item(LocalDate.of(2026, 3, 10), 2).copy(reminderMinuteOfDay = 9 * 60)
+        val defaultTime = hm(8, 0)
+        assertEquals(at("2026-03-09", "08:00"), ReminderCalculator.reminderMoment(default, defaultTime, utc))
+        assertEquals(at("2026-03-10", "19:00"), ReminderCalculator.reminderMoment(paneer, defaultTime, utc))
+        assertEquals(at("2026-03-08", "09:00"), ReminderCalculator.reminderMoment(medicine, defaultTime, utc))
+    }
+
+    @Test
+    fun advanceNotice_onTheDay_1_2_3_andCustomDays() {
+        val useBy = LocalDate.of(2026, 3, 20)
+        listOf(0, 1, 2, 3, 10, 45).forEach { days ->
+            assertEquals(useBy.minusDays(days.toLong()), ReminderCalculator.reminderDate(item(useBy, days)))
+        }
+    }
+
+    @Test
+    fun anyValidTimeIsAccepted_includingMidnightAndLastMinute() {
+        val midnight = item(LocalDate.of(2026, 3, 10), 0).copy(reminderMinuteOfDay = 0)
+        val late = item(LocalDate.of(2026, 3, 10), 0).copy(reminderMinuteOfDay = 23 * 60 + 59)
+        assertEquals(hm(0, 0), ReminderCalculator.reminderTime(midnight))
+        assertEquals(hm(23, 59), ReminderCalculator.reminderTime(late))
+    }
+
+    @Test
+    fun timeConversion_roundTrips_andClampsOutOfRangeValues() {
+        assertEquals(hm(7, 30), ReminderCalculator.timeOfMinutes(7 * 60 + 30))
+        assertEquals(7 * 60 + 30, ReminderCalculator.minutesOf(hm(7, 30)))
+        assertEquals(hm(23, 59), ReminderCalculator.timeOfMinutes(5000))
+        assertEquals(hm(0, 0), ReminderCalculator.timeOfMinutes(-4))
+    }
+
+    @Test
+    fun reminderToday_stillAhead_isScheduled() {
+        val it = item(LocalDate.of(2026, 3, 10), 0)
+        assertEquals(
+            Duration.ofHours(4),
+            ReminderCalculator.delayUntilReminder(it, at("2026-03-10", "14:00"), hm(18, 0)),
+        )
+    }
+
+    @Test
+    fun reminderToday_timeAlreadyPassed_isNotScheduled() {
+        val it = item(LocalDate.of(2026, 3, 10), 0)
+        assertNull(ReminderCalculator.delayUntilReminder(it, at("2026-03-10", "18:01"), hm(18, 0)))
+        assertNull(ReminderCalculator.delayUntilReminder(it, at("2026-03-10", "18:00"), hm(18, 0)))
+    }
+
+    @Test
+    fun deadlineInThePast_isNotScheduled_evenWithAReminder() {
+        val it = item(LocalDate.of(2026, 3, 1), 0)
+        assertNull(ReminderCalculator.delayUntilReminder(it, at("2026-03-05", "06:00"), hm(7, 0)))
+    }
+
+    @Test
+    fun deadlineToday_withTimeStillAhead_isScheduled_andWithNoticeDaysIsNot() {
+        val today = LocalDate.of(2026, 3, 10)
+        assertEquals(
+            Duration.ofHours(2),
+            ReminderCalculator.delayUntilReminder(item(today, 0), at("2026-03-10", "07:00"), hm(9, 0)),
+        )
+        // "1 day before" for something due today means yesterday: gone.
+        assertNull(ReminderCalculator.delayUntilReminder(item(today, 1), at("2026-03-10", "07:00"), hm(9, 0)))
+    }
+
+    @Test
+    fun changingTheDefaultTime_movesTheReminder_butNotAnItemsOwnTime() {
+        val follower = item(LocalDate.of(2026, 3, 10), 1)
+        val own = follower.copy(reminderMinuteOfDay = 6 * 60)
+        val now = at("2026-03-08", "00:00")
+        assertEquals(Duration.ofHours(33), ReminderCalculator.delayUntilReminder(follower, now, hm(9, 0)))
+        assertEquals(Duration.ofHours(44), ReminderCalculator.delayUntilReminder(follower, now, hm(20, 0)))
+        assertEquals(Duration.ofHours(30), ReminderCalculator.delayUntilReminder(own, now, hm(9, 0)))
+        assertEquals(Duration.ofHours(30), ReminderCalculator.delayUntilReminder(own, now, hm(20, 0)))
+    }
+
+    @Test
+    fun usedItem_neverHasAReminder_whateverTheTime() {
+        val used = usedItem(LocalDate.of(2026, 3, 10), 1).copy(reminderMinuteOfDay = 18 * 60)
+        assertNull(ReminderCalculator.reminderMoment(used, hm(9, 0), utc))
+    }
+
+    // --- Plan (the form's summary) -----------------------------------------------------------
+
+    @Test
+    fun plan_none_scheduled_andAlreadyPassed() {
+        val useBy = LocalDate.of(2026, 3, 10)
+        val now = at("2026-03-09", "10:00")
+        assertEquals(ReminderCalculator.Plan.None, ReminderCalculator.plan(useBy, null, null, hm(9, 0), now))
+        assertEquals(
+            ReminderCalculator.Plan.Scheduled(at("2026-03-10", "09:00")),
+            ReminderCalculator.plan(useBy, 0, null, hm(9, 0), now),
+        )
+        assertEquals(
+            ReminderCalculator.Plan.AlreadyPassed(at("2026-03-09", "09:00")),
+            ReminderCalculator.plan(useBy, 1, null, hm(9, 0), now),
+        )
     }
 }

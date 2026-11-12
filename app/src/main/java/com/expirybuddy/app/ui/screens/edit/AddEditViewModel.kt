@@ -8,7 +8,12 @@ import com.expirybuddy.app.data.prefs.UserPreferences
 import com.expirybuddy.app.data.repository.ExpiryItemRepository
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
+import com.expirybuddy.app.domain.expiry.UseByCalculator
+import com.expirybuddy.app.domain.expiry.UseWithinUnit
+import com.expirybuddy.app.domain.model.ReminderOptions
+import com.expirybuddy.app.domain.validation.CustomReminderError
 import com.expirybuddy.app.domain.validation.DateError
+import com.expirybuddy.app.domain.validation.UseWithinError
 import com.expirybuddy.app.domain.validation.ItemFormValidator
 import com.expirybuddy.app.domain.validation.NameError
 import com.expirybuddy.app.ui.navigation.Destinations
@@ -30,9 +35,25 @@ data class AddEditUiState(
     val loadFailure: LoadFailure? = null,
     val name: String = "",
     val category: ItemCategory = ItemCategory.FOOD,
-    val expiryDate: LocalDate? = null,
+    /** The use-by date: the one deadline. Typed by the user or calculated from [openedOn] + use within. */
+    val useByDate: LocalDate? = null,
+    val openedOn: LocalDate? = null,
+    /** Text of the "use within" number, kept as typed so validation can explain a bad value. */
+    val useWithinText: String = "",
+    val useWithinUnit: UseWithinUnit = UseWithinUnit.DAYS,
+    /** True while [useByDate] is the calculated one, so the form can say where it came from. */
+    val useByCalculated: Boolean = false,
+    val storageInstructions: String = "",
     val notes: String = "",
+    /** Days before the use-by date to remind; null = no reminder. Ignored while [reminderIsCustom]. */
     val reminderDaysBefore: Int? = null,
+    /** The user chose "Custom": the number of days is in [customReminderText]. */
+    val reminderIsCustom: Boolean = false,
+    val customReminderText: String = "",
+    /** Item-specific reminder time in minutes after midnight; null = follow the default time. */
+    val reminderMinuteOfDay: Int? = null,
+    /** Default notification time from Settings, shown for items that follow it. */
+    val defaultReminderMinutes: Int = 540,
     val photoUri: String? = null,
     /** A picture is being copied into private storage. */
     val isPhotoBusy: Boolean = false,
@@ -40,6 +61,8 @@ data class AddEditUiState(
     val photoFailed: Boolean = false,
     val nameError: NameError? = null,
     val dateError: DateError? = null,
+    val useWithinError: UseWithinError? = null,
+    val customReminderError: CustomReminderError? = null,
     val isSaving: Boolean = false,
     val saveFailed: Boolean = false,
     val saved: Boolean = false,
@@ -71,6 +94,10 @@ class AddEditViewModel(
             isLoading = itemId != null,
             // New items start with the default reminder chosen in Settings.
             reminderDaysBefore = preferences.defaultReminderDays,
+            reminderIsCustom = preferences.defaultReminderDays?.let { !ReminderOptions.isPreset(it) } ?: false,
+            customReminderText = preferences.defaultReminderDays
+                ?.takeIf { !ReminderOptions.isPreset(it) }?.toString().orEmpty(),
+            defaultReminderMinutes = preferences.defaultReminderMinutes,
         ),
     )
     val uiState: StateFlow<AddEditUiState> = _uiState.asStateFlow()
@@ -92,9 +119,17 @@ class AddEditViewModel(
                             isLoading = false,
                             name = item.name,
                             category = item.category,
-                            expiryDate = item.expiryDate,
+                            useByDate = item.expiryDate,
+                            openedOn = item.openedOn,
+                            useWithinText = item.useWithinAmount?.toString().orEmpty(),
+                            useWithinUnit = item.useWithinUnit,
+                            storageInstructions = item.storageInstructions.orEmpty(),
                             notes = item.notes.orEmpty(),
                             reminderDaysBefore = item.reminderDaysBefore,
+                            reminderIsCustom = item.reminderDaysBefore?.let { d -> !ReminderOptions.isPreset(d) } ?: false,
+                            customReminderText = item.reminderDaysBefore
+                                ?.takeIf { d -> !ReminderOptions.isPreset(d) }?.toString().orEmpty(),
+                            reminderMinuteOfDay = item.reminderMinuteOfDay,
                             photoUri = item.photoUri,
                         )
                     }
@@ -113,15 +148,66 @@ class AddEditViewModel(
 
     fun onCategoryChange(value: ItemCategory) = _uiState.update { it.copy(category = value) }
 
-    fun onExpiryDateChange(value: LocalDate) = _uiState.update {
-        it.copy(expiryDate = value, dateError = null)
+    /** The user picked the use-by date by hand; it stays as chosen until the opening details change again. */
+    fun onUseByDateChange(value: LocalDate) = _uiState.update {
+        it.copy(useByDate = value, useByCalculated = false, dateError = null)
+    }
+
+    fun onOpenedOnChange(value: LocalDate?) = _uiState.update { recalculate(it.copy(openedOn = value)) }
+
+    fun onUseWithinChange(text: String) = _uiState.update {
+        recalculate(it.copy(useWithinText = text.filter(Char::isDigit).take(4), useWithinError = null))
+    }
+
+    fun onUseWithinUnitChange(unit: UseWithinUnit) = _uiState.update {
+        recalculate(it.copy(useWithinUnit = unit, useWithinError = null))
+    }
+
+    /** use-by = opened on + use within, whenever both are valid. Otherwise the date is left alone. */
+    private fun recalculate(state: AddEditUiState): AddEditUiState {
+        val calculated = UseByCalculator.calculate(
+            state.openedOn,
+            state.useWithinText.trim().toIntOrNull(),
+            state.useWithinUnit,
+        ) ?: return state
+        return state.copy(useByDate = calculated, useByCalculated = true, dateError = null)
+    }
+
+    fun onStorageChange(value: String) = _uiState.update {
+        it.copy(storageInstructions = value.take(ItemFormValidator.MAX_STORAGE_LENGTH))
     }
 
     fun onNotesChange(value: String) = _uiState.update {
         it.copy(notes = value.take(ItemFormValidator.MAX_NOTES_LENGTH))
     }
 
-    fun onReminderChange(daysBefore: Int?) = _uiState.update { it.copy(reminderDaysBefore = daysBefore) }
+    /** A preset was chosen: no reminder, the use-by day, or 1 to 3 days before. */
+    fun onReminderChange(daysBefore: Int?) = _uiState.update {
+        it.copy(reminderDaysBefore = daysBefore, reminderIsCustom = false, customReminderError = null)
+    }
+
+    /** "Custom" was chosen: the number of days is typed in. */
+    fun onCustomReminderSelected() = _uiState.update {
+        it.copy(
+            reminderIsCustom = true,
+            customReminderText = it.customReminderText.ifBlank {
+                it.reminderDaysBefore?.takeIf { d -> !ReminderOptions.isPreset(d) }?.toString().orEmpty()
+            },
+            customReminderError = null,
+        )
+    }
+
+    fun onCustomReminderTextChange(text: String) = _uiState.update {
+        val digits = text.filter(Char::isDigit).take(3)
+        it.copy(
+            customReminderText = digits,
+            reminderDaysBefore = digits.toIntOrNull()?.takeIf(ReminderOptions::isValidCustom) ?: it.reminderDaysBefore,
+            customReminderError = null,
+        )
+    }
+
+    /** A time for this item only; null goes back to the default notification time. */
+    fun onReminderTimeChange(minuteOfDay: Int?) = _uiState.update { it.copy(reminderMinuteOfDay = minuteOfDay) }
 
     /**
      * A picture was chosen from the gallery or taken with the camera. It is copied into private
@@ -163,15 +249,27 @@ class AddEditViewModel(
         if (current.isSaving || current.isLoading || current.loadFailure != null || current.isPhotoBusy) return
         if (current.showNotificationExplanation) return
 
-        val validation = ItemFormValidator.validate(current.name, current.expiryDate)
+        val validation = ItemFormValidator.validate(
+            name = current.name,
+            useByDate = current.useByDate,
+            useWithinText = current.useWithinText,
+            useWithinUnit = current.useWithinUnit,
+            customReminderText = current.customReminderText.takeIf { current.reminderIsCustom },
+        )
         if (!validation.isValid) {
             _uiState.update {
-                it.copy(nameError = validation.nameError, dateError = validation.dateError, saveFailed = false)
+                it.copy(
+                    nameError = validation.nameError,
+                    dateError = validation.dateError,
+                    useWithinError = validation.useWithinError,
+                    customReminderError = validation.customReminderError,
+                    saveFailed = false,
+                )
             }
             return
         }
 
-        if (canExplainNotifications && current.reminderDaysBefore != null) {
+        if (canExplainNotifications && effectiveReminderDays(current) != null) {
             _uiState.update { it.copy(showNotificationExplanation = true, saveFailed = false) }
             return
         }
@@ -186,6 +284,10 @@ class AddEditViewModel(
         save(current)
     }
 
+    /** The number of days that will be saved: the custom number if "Custom" is chosen, else the preset. */
+    private fun effectiveReminderDays(state: AddEditUiState): Int? =
+        if (state.reminderIsCustom) state.customReminderText.trim().toIntOrNull() else state.reminderDaysBefore
+
     private fun save(current: AddEditUiState) {
         _uiState.update { it.copy(isSaving = true, saveFailed = false) }
         val now = Instant.now(clock)
@@ -193,13 +295,18 @@ class AddEditViewModel(
             id = original?.id ?: ExpiryItem.NEW_ID,
             name = current.name.trim(),
             category = current.category,
-            expiryDate = checkNotNull(current.expiryDate),
+            expiryDate = checkNotNull(current.useByDate),
             notes = current.notes.trim().ifBlank { null },
-            reminderDaysBefore = current.reminderDaysBefore,
+            reminderDaysBefore = effectiveReminderDays(current),
             createdAt = original?.createdAt ?: now,
             photoUri = current.photoUri,
             updatedAt = now,
             usedAt = original?.usedAt,
+            openedOn = current.openedOn,
+            useWithinAmount = current.useWithinText.trim().toIntOrNull(),
+            useWithinUnit = current.useWithinUnit,
+            storageInstructions = current.storageInstructions.trim().ifBlank { null },
+            reminderMinuteOfDay = current.reminderMinuteOfDay,
         )
         viewModelScope.launch {
             try {

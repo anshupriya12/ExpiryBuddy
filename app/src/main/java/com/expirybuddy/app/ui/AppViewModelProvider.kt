@@ -39,7 +39,7 @@ object AppViewModelProvider {
                 container().photoStorage,
             )
         }
-        initializer { SettingsViewModel(container().userPreferences) }
+        initializer { SettingsViewModel(container().userPreferences, container().itemRepository, container().reminderScheduler) }
     }
 }
 

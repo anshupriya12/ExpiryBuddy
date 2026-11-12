@@ -95,17 +95,17 @@ class ReminderWorkerTest {
         assertTrue("expected a notification", posted != null)
         val extras = posted!!.notification.extras
         assertEquals("Worker test milk", extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString())
-        assertEquals("Expires in 2 days", extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
+        assertEquals("Use within 2 days", extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString())
     }
 
     @Test
-    fun expiringToday_saysExpiresToday() {
+    fun dueToday_saysUseByToday() {
         val id = saveItem(expiresInDays = 0, daysBefore = 0)
 
         runWorker(id)
 
         val text = awaitShown(id)!!.notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString()
-        assertEquals("Expires today", text)
+        assertEquals("Use by today", text)
     }
 
     @Test

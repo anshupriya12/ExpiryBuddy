@@ -45,15 +45,25 @@ import com.expirybuddy.app.domain.validation.NameError
 import com.expirybuddy.app.reminders.needsNotificationPermission
 import com.expirybuddy.app.ui.AppViewModelProvider
 import com.expirybuddy.app.ui.components.AddItemFormField
+import com.expirybuddy.app.ui.components.AdvanceNoticeSelector
+import com.expirybuddy.app.ui.components.CustomDaysField
+import com.expirybuddy.app.ui.components.DateSelector
+import com.expirybuddy.app.ui.components.TimeSelector
+import com.expirybuddy.app.ui.components.UseWithinField
+import com.expirybuddy.app.ui.util.formatDate
+import com.expirybuddy.app.ui.util.formatMinuteOfDay
+import com.expirybuddy.app.domain.model.ReminderOptions
+import com.expirybuddy.app.domain.reminder.ReminderCalculator
+import androidx.compose.material3.TextButton
+import java.time.Clock
+import java.time.ZonedDateTime
 import com.expirybuddy.app.ui.components.CategorySelector
 import com.expirybuddy.app.ui.components.DeleteConfirmationDialog
-import com.expirybuddy.app.ui.components.ExpiryDateSelector
 import com.expirybuddy.app.ui.components.LoadingState
 import com.expirybuddy.app.ui.components.MessageState
 import com.expirybuddy.app.ui.components.NeutralIconButton
 import com.expirybuddy.app.ui.components.PhotoPicker
 import com.expirybuddy.app.ui.components.PrimaryButton
-import com.expirybuddy.app.ui.components.ReminderSelector
 import com.expirybuddy.app.ui.components.ScreenScaffold
 import com.expirybuddy.app.ui.components.SecondaryButton
 import com.expirybuddy.app.ui.theme.Spacing
@@ -161,6 +171,7 @@ fun AddEditItemScreen(
             else -> ItemForm(
                 state = state,
                 viewModel = viewModel,
+                clock = container.clock,
                 canTakePhoto = remember { photoStorage.hasCamera() },
                 onTakePhoto = {
                     photoStorage.createCameraTarget()?.let { target ->
@@ -181,6 +192,7 @@ fun AddEditItemScreen(
 private fun ItemForm(
     state: AddEditUiState,
     viewModel: AddEditViewModel,
+    clock: Clock,
     canTakePhoto: Boolean,
     onTakePhoto: () -> Unit,
     onChooseFromGallery: () -> Unit,
@@ -213,16 +225,73 @@ private fun ItemForm(
 
         CategorySelector(selected = state.category, onSelected = viewModel::onCategoryChange)
 
-        ExpiryDateSelector(
-            date = state.expiryDate,
-            onDateSelected = viewModel::onExpiryDateChange,
+        DateSelector(
+            label = stringResource(R.string.field_use_by_date),
+            hint = stringResource(R.string.field_use_by_date_hint),
+            pickDescription = stringResource(R.string.field_use_by_date_pick),
+            date = state.useByDate,
+            onDateSelected = viewModel::onUseByDateChange,
             errorText = state.dateError?.let { stringResource(dateErrorText(it)) },
+            supportingText = if (state.useByCalculated) stringResource(R.string.use_by_calculated) else null,
         )
 
-        ReminderSelector(
-            selectedDaysBefore = state.reminderDaysBefore,
-            onSelected = viewModel::onReminderChange,
+        DateSelector(
+            label = stringResource(R.string.field_opened_on),
+            hint = stringResource(R.string.field_use_by_date_hint),
+            pickDescription = stringResource(R.string.field_opened_on_pick),
+            date = state.openedOn,
+            onDateSelected = viewModel::onOpenedOnChange,
+            onClear = { viewModel.onOpenedOnChange(null) },
+            clearDescription = stringResource(R.string.field_opened_on_clear),
         )
+
+        UseWithinField(
+            amountText = state.useWithinText,
+            unit = state.useWithinUnit,
+            onAmountChange = viewModel::onUseWithinChange,
+            onUnitChange = viewModel::onUseWithinUnitChange,
+            errorText = state.useWithinError?.let { stringResource(R.string.error_use_within) },
+        )
+
+        AddItemFormField(
+            label = stringResource(R.string.field_storage),
+            value = state.storageInstructions,
+            onValueChange = viewModel::onStorageChange,
+            placeholder = stringResource(R.string.field_storage_hint),
+        )
+
+        AdvanceNoticeSelector(
+            selectedDaysBefore = state.reminderDaysBefore,
+            isCustom = state.reminderIsCustom,
+            onPresetSelected = viewModel::onReminderChange,
+            onCustomSelected = viewModel::onCustomReminderSelected,
+        )
+        if (state.reminderIsCustom) {
+            CustomDaysField(
+                text = state.customReminderText,
+                onTextChange = viewModel::onCustomReminderTextChange,
+                errorText = state.customReminderError?.let { stringResource(R.string.error_custom_days) },
+            )
+        }
+        val defaultMinutes = state.defaultReminderMinutes
+        val timeMinutes = state.reminderMinuteOfDay
+        TimeSelector(
+            label = stringResource(R.string.field_reminder_time),
+            valueText = if (timeMinutes != null) {
+                formatMinuteOfDay(timeMinutes)
+            } else {
+                stringResource(R.string.reminder_time_default, formatMinuteOfDay(defaultMinutes))
+            },
+            initialMinuteOfDay = timeMinutes ?: defaultMinutes,
+            dialogTitle = stringResource(R.string.reminder_time_dialog_title),
+            onTimeSelected = viewModel::onReminderTimeChange,
+        )
+        if (timeMinutes != null) {
+            TextButton(onClick = { viewModel.onReminderTimeChange(null) }) {
+                Text(stringResource(R.string.reminder_time_use_default))
+            }
+        }
+        ReminderSummary(state = state, clock = clock)
 
         AddItemFormField(
             label = stringResource(R.string.field_notes),
@@ -249,6 +318,43 @@ private fun ItemForm(
             )
         }
     }
+}
+
+/** One line saying what the current reminder choices will do right now (including "time already passed"). */
+@Composable
+private fun ReminderSummary(state: AddEditUiState, clock: Clock) {
+    val useBy = state.useByDate
+    val days = if (state.reminderIsCustom) {
+        state.customReminderText.toIntOrNull()?.takeIf(ReminderOptions::isValidCustom)
+    } else {
+        state.reminderDaysBefore
+    }
+    val plan = if (useBy == null || (state.reminderIsCustom && days == null)) {
+        null
+    } else {
+        ReminderCalculator.plan(
+            useByDate = useBy,
+            daysBefore = days,
+            minuteOfDay = state.reminderMinuteOfDay,
+            defaultTime = ReminderCalculator.timeOfMinutes(state.defaultReminderMinutes),
+            now = ZonedDateTime.now(clock),
+        )
+    }
+    val text = when (plan) {
+        null -> return
+        ReminderCalculator.Plan.None -> stringResource(R.string.reminder_plan_none)
+        is ReminderCalculator.Plan.Scheduled -> stringResource(
+            R.string.reminder_plan_at,
+            formatDate(plan.moment.toLocalDate()),
+            formatMinuteOfDay(ReminderCalculator.minutesOf(plan.moment.toLocalTime())),
+        )
+        is ReminderCalculator.Plan.AlreadyPassed -> stringResource(R.string.reminder_plan_passed)
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** Pinned below the scrolling form so Save never hides behind the keyboard. Delete is separate and neutral. */

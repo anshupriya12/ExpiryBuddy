@@ -33,10 +33,10 @@ object NotificationHelper {
         if (!context.canPostNotifications()) return false
 
         val text = when (daysUntilExpiry) {
-            0L -> context.getString(R.string.status_expires_today)
-            1L -> context.getString(R.string.status_expires_tomorrow)
+            0L -> context.getString(R.string.status_use_today)
+            1L -> context.getString(R.string.status_use_tomorrow)
             else -> context.resources.getQuantityString(
-                R.plurals.status_expires_in_days,
+                R.plurals.status_use_in_days,
                 daysUntilExpiry.toInt(),
                 daysUntilExpiry.toInt(),
             )

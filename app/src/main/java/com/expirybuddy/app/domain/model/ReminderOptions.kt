@@ -1,9 +1,19 @@
 package com.expirybuddy.app.domain.model
 
-/** The reminder choices offered in the form. Values are `reminderDaysBefore`; null = no reminder. */
+/**
+ * The choices offered for "how early to remind". Values are `reminderDaysBefore`; null = no
+ * reminder. Any other whole number of days up to [MAX_CUSTOM_DAYS] is a "custom" choice.
+ */
 object ReminderOptions {
-    val ALL: List<Int?> = listOf(null, 0, 1, 3, 7, 14)
+    /** Presets shown in the menus (a custom number is entered separately). */
+    val PRESETS: List<Int?> = listOf(null, 0, 1, 2, 3)
 
-    /** Pre-selected for new items. */
+    /** Pre-selected for new items until the user picks another default in Settings. */
     const val DEFAULT_DAYS_BEFORE = 3
+
+    const val MAX_CUSTOM_DAYS = 365
+
+    fun isPreset(daysBefore: Int?): Boolean = daysBefore in PRESETS
+
+    fun isValidCustom(days: Int?): Boolean = days != null && days in 1..MAX_CUSTOM_DAYS
 }

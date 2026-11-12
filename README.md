@@ -1,11 +1,23 @@
 # Expiry Buddy
 
-Expiry Buddy helps you remember when things expire. Save an item with its expiry date (and a photo, if
-you like), see what needs attention, and get a local reminder before it expires. Everything stays on
+Expiry Buddy answers one question: **when should I use this by?** Save an item with its use-by date (and
+a photo, if you like), see what needs attention, and get a local reminder at the time you choose. Everything stays on
 the device and works offline. There is no account, backend, or third-party service.
 
-> Status: **Version 2** (UI redesign of the working V1 app). Same offline-first architecture, database
-> and reminders; new design system, onboarding, photos, All Items, mark-as-used and Settings.
+> Status: **Version 2.2**: one use-by deadline per item and configurable notifications, on top of the
+> V2 redesign. Same offline-first architecture, database and WorkManager reminders.
+
+## What's new in V2.2
+
+- **One deadline: the use-by date.** The user-facing "expiry date" is gone. The use-by date can be typed
+  directly, or worked out as *opened on + use within* (days or months); the result appears at once and
+  stays editable. There is no separate package-expiry and post-opening deadline.
+- **Optional extras:** opened on, use within, storage instructions.
+- **Wording:** Use-by date, Use soon, Use within N days, Past due.
+- **Notification preferences** (Settings): default notification time (Material time picker, any time),
+  default advance notice (on the use-by date, 1, 2, 3 days before, or a custom number of days).
+- **Per item:** each item can override the advance notice and the notification time, or follow the
+  defaults. New items start from the defaults.
 
 ## Screens
 
@@ -16,7 +28,7 @@ the device and works offline. There is no account, backend, or third-party servi
 | **All items** | Search, category filter chips, sort (expiry date, name, category) and a **Used** filter. |
 | **Item details** | Photo, name, category, a status panel in words and colour, reminder, notes, **Mark as used** (or **Restore to list**), Edit, and Delete behind a confirmation. |
 | **Add / Edit item** | One form for both. Photo (camera or gallery, preview, replace, remove), name, category, Material date picker, reminder, notes, inline validation, Save pinned above the keyboard, and a neutral Delete in edit mode. |
-| **Settings** | Notification status and switch (never shows "on" unless the system allows notifications), default reminder for new items, reminder time, version, and data and privacy. |
+| **Settings** | Notification preferences: status and switch (never "on" unless the system allows notifications), default advance notice, default notification time (time picker), plus version and data and privacy. |
 
 Every control does something: there are no decorative buttons, and every list is bound to the real Room
 data. Confirmations (saved, deleted, marked as used, restored) appear as snackbars.
@@ -55,12 +67,20 @@ Reusable components live in `ui/components/`: `ItemCard`, `ExpiryStatusLabel`, `
 
 ## Reminders
 
-- Each item can have a reminder on the same day, or 1, 3, 7 or 14 days before its expiry date, or none.
-  New items start with the default chosen in Settings.
-- A reminder is delivered at **9:00 local time** on the reminder day, as a notification that opens
-  the item. It is scheduled with WorkManager (no exact alarms), so delivery can be a little late
-  when the device is in Doze.
-- A reminder is scheduled only if that 9:00 moment is still in the future. Editing an item replaces
+- Each item can have a reminder on its use-by date, or 1, 2, 3 or a custom number of days (1 to 365)
+  before it, or none. New items start with the default chosen in Settings.
+- The reminder is delivered at the item's own time if it has one, otherwise at the **default
+  notification time** (9:00 until changed), on the reminder day, as a notification that opens the
+  item. Example: use-by 14 Nov, 1 day before, 7:30 PM: notification on 13 Nov at 7:30 PM.
+- Changing the default time re-plans every item that follows it; items with their own time keep it.
+  Changing the default advance notice only affects items added afterwards.
+- **One reminder per item.** The app sends a single notification; it does not repeat daily. (Daily
+  repeats would need either a chain of jobs or periodic work, which WorkManager runs at inexact
+  intervals; this is deliberately left out until you ask for it.)
+- Scheduling uses WorkManager (no exact alarms), so delivery can be a little late, especially in Doze
+  or battery saver. The app never promises an exact minute.
+- A reminder is scheduled only if its date and time are still in the future. If you pick a time
+  that has already passed today, no notification is sent (the form says so). Editing an item replaces
   its reminder (or cancels it if there is no reminder, or the reminder moment has already passed);
   deleting an item cancels it. **Marking an item as used cancels its reminder too, and restoring it
   schedules the reminder again** if it still applies. Work is named `reminder-item-<id>`, so each item
@@ -74,12 +94,12 @@ Reusable components live in `ui/components/`: `ItemCard`, `ExpiryStatusLabel`, `
   send notifications and then shows the system prompt. Declining is fine: the app works fully, and
   Settings shows the current status with a way to turn notifications on later.
 
-## Expiry rules
+## Use-by rules
 
 | Status | Rule (dates are calendar days, compared to the device's local "today") |
 |---|---|
-| Expired | expiry date is before today |
-| Expiring Soon | today through the next 7 days (inclusive) |
+| Past due | use-by date is before today |
+| Use soon | today through the next 7 days (inclusive) |
 | Upcoming | more than 7 days away |
 
 - The 7-day threshold is `ExpiryClassifier.EXPIRING_SOON_DAYS`, the only place it is defined.
@@ -131,8 +151,8 @@ On Windows use `gradlew.bat`. Gradle must run on JDK 17-21, not a newer one (set
 
 | Suite | Command | Count |
 |---|---|---|
-| JVM unit tests (classification, sorting, reminder dates and DST, validation, filtering, all ViewModels, photo and used-state rules, repository decorator) | `./gradlew testDebugUnitTest` | 187 |
-| Instrumented (Room DAO, **1 to 2 migration**, photo storage, real WorkManager scheduling, worker notifications) | `./gradlew connectedDebugAndroidTest` | 32 |
+| JVM unit tests (classification, use-by calculation, reminder dates, times and DST, validation, filtering, all ViewModels, preferences, repository decorator) | `./gradlew testDebugUnitTest` | 235 |
+| Instrumented (Room DAO, **1 to 2 and 2 to 3 migrations**, photo storage, real WorkManager scheduling, worker notifications) | `./gradlew connectedDebugAndroidTest` | 39 |
 
 The UI was also checked by hand on an emulator, including dark mode, an 1.8x font scale, rotation, the
 camera flow and the signed, minified release build. Not covered by automated tests: Compose UI, TalkBack
@@ -141,7 +161,7 @@ revoked, and an actual 9:00 delivery under Doze.
 
 ## Known limitations
 
-- Reminders fire at a fixed 9:00 local time and can be late in Doze (WorkManager, not exact alarms).
+- Reminders are a single notification, can be late in Doze or battery saver (WorkManager, not exact alarms), and are skipped if their time has already passed when you save.
 - Text typed in the Add/Edit form survives rotation but not process death.
 - Home search shows results inline instead of in a floating sheet.
 - Category management and a separate Reminders screen from the design brief are not included (the
@@ -155,6 +175,10 @@ revoked, and an actual 9:00 delivery under Doze.
 - Items live in a local Room database (`expiry_buddy.db`); nothing leaves the device.
 - `expiryDate` is a `LocalDate` stored as an epoch day, so it never shifts with time zones.
 - `reminderDaysBefore` is nullable: `null` means no reminder, `0` means on the expiry day.
+- Schema version 3 (V2.2) adds `openedOn`, `useWithinAmount`, `useWithinUnit`, `storageInstructions` and
+  `reminderMinuteOfDay` (all nullable). `MIGRATION_2_3` touches nothing existing: the `expiryDate` column
+  keeps its name and values and now simply means the use-by date; a null reminder time means "follow the
+  default". Covered by instrumented migration tests (2 to 3 and 1 to 3).
 - Schema version 2 adds `photoUri`, `updatedAt` and `usedAt`. `MIGRATION_1_2` keeps every existing item
   (no photo, still active, `updatedAt` = creation time) and is covered by an instrumented migration test.
 - Room schemas are exported to `app/schemas/` and should be committed. There is deliberately no
@@ -203,3 +227,4 @@ app/src/main/java/com/expirybuddy/app/
 5. WorkManager reminders and notification permission (done)
 6. Tests, polish, release readiness (done)
 7. V2 redesign: design system, onboarding, photos, All Items, mark as used, Settings (done)
+8. V2.2: use-by deadline, opening-date calculation, configurable notification time and advance notice (done)

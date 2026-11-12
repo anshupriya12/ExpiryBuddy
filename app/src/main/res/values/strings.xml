@@ -26,13 +26,22 @@
 
     <!-- Reminders -->
     <string name="reminder_none">No reminder</string>
-    <string name="reminder_on_day">On the same day</string>
-    <string name="reminder_one_week">1 week before</string>
-    <string name="reminder_two_weeks">2 weeks before</string>
+    <string name="reminder_on_day">On the use-by date</string>
+    <string name="reminder_custom">Custom</string>
+    <string name="reminder_custom_days_label">Days before the use-by date</string>
+    <string name="reminder_custom_days_hint">e.g. 5</string>
+    <string name="error_custom_days">Enter a whole number of days from 1 to 365.</string>
     <plurals name="reminder_days_before">
         <item quantity="one">%d day before</item>
         <item quantity="other">%d days before</item>
     </plurals>
+    <string name="reminder_time_default">Default (%1$s)</string>
+    <string name="reminder_time_use_default">Use default time</string>
+    <string name="reminder_time_dialog_title">Reminder time</string>
+    <string name="reminder_plan_none">No reminder will be sent.</string>
+    <string name="reminder_plan_at">You\'ll be reminded on %1$s at %2$s.</string>
+    <string name="reminder_plan_passed">That reminder time has already passed, so no notification will be sent.</string>
+    <string name="details_reminder_value">%1$s, at %2$s</string>
 
     <!-- Home -->
     <string name="home_greeting_morning">Good morning!</string>
@@ -42,31 +51,31 @@
     <string name="home_see_all">See all</string>
     <string name="home_see_all_description">See all items</string>
     <string name="home_empty_title">No items yet</string>
-    <string name="home_empty_body">Start by adding something to track its expiry.</string>
+    <string name="home_empty_body">Add something to track when to use it by.</string>
     <string name="home_empty_tagline">Don\'t let it go to waste!</string>
     <string name="home_empty_action">Add item</string>
-    <string name="home_nothing_soon_title">Nothing expiring soon!</string>
+    <string name="home_nothing_soon_title">Nothing to use soon!</string>
     <string name="home_nothing_soon_body">Everything on your list is still fresh.</string>
     <string name="home_nothing_soon_action">View all items</string>
     <string name="home_error">Couldn\'t load your items.</string>
     <string name="home_search_results">Results (%1$d)</string>
     <string name="home_item_category_date">%1$s · %2$s</string>
-    <string name="home_item_description">%1$s, %2$s, %3$s, expiry date %4$s</string>
+    <string name="home_item_description">%1$s, %2$s, %3$s, use-by date %4$s</string>
     <string name="home_section_title">%1$s (%2$d)</string>
 
     <!-- Expiry status -->
-    <string name="status_expired">Expired</string>
-    <string name="status_expiring_soon">Expiring soon</string>
+    <string name="status_expired">Past due</string>
+    <string name="status_expiring_soon">Use soon</string>
     <string name="status_upcoming">Upcoming</string>
-    <string name="status_expires_today">Expires today</string>
-    <string name="status_expires_tomorrow">Expires tomorrow</string>
-    <plurals name="status_expires_in_days">
-        <item quantity="one">Expires in %d day</item>
-        <item quantity="other">Expires in %d days</item>
+    <string name="status_use_today">Use by today</string>
+    <string name="status_use_tomorrow">Use by tomorrow</string>
+    <plurals name="status_use_in_days">
+        <item quantity="one">Use within %d day</item>
+        <item quantity="other">Use within %d days</item>
     </plurals>
     <plurals name="status_expired_days_ago">
-        <item quantity="one">Expired %d day ago</item>
-        <item quantity="other">Expired %d days ago</item>
+        <item quantity="one">Past use-by date by %d day</item>
+        <item quantity="other">Past use-by date by %d days</item>
     </plurals>
     <string name="status_used_on">Used on %1$s</string>
 
@@ -81,7 +90,7 @@
     <string name="no_results_action">Clear filters</string>
     <string name="sort_label">Sort by: %1$s</string>
     <string name="sort_menu_title">Sort by</string>
-    <string name="sort_expiry_date">Expiry date</string>
+    <string name="sort_expiry_date">Use-by date</string>
     <string name="sort_name">Name (A–Z)</string>
     <string name="sort_category">Category</string>
 
@@ -98,14 +107,27 @@
     <string name="field_name">Name</string>
     <string name="field_name_hint">e.g. Chicken, Paracetamol</string>
     <string name="field_category">Category</string>
-    <string name="field_expiry_date">Expiry date</string>
-    <string name="field_expiry_date_hint">Select date</string>
-    <string name="field_expiry_date_pick">Choose expiry date</string>
+    <string name="field_use_by_date">Use-by date</string>
+    <string name="field_use_by_date_hint">Select date</string>
+    <string name="field_use_by_date_pick">Choose use-by date</string>
+    <string name="use_by_calculated">Worked out from the opening date. You can still change it.</string>
+    <string name="field_opened_on">Opened on (optional)</string>
+    <string name="field_opened_on_pick">Choose opening date</string>
+    <string name="field_opened_on_clear">Clear opening date</string>
+    <string name="field_use_within">Use within (optional)</string>
+    <string name="field_use_within_hint">e.g. 2</string>
+    <string name="unit_days">Days</string>
+    <string name="unit_months">Months</string>
+    <string name="field_unit">Unit</string>
+    <string name="error_use_within">Enter a whole number of 1 or more.</string>
+    <string name="field_storage">Storage instructions (optional)</string>
+    <string name="field_storage_hint">e.g. Keep refrigerated</string>
     <string name="field_notes">Notes (optional)</string>
     <string name="field_notes_hint">e.g. Use it for biryani</string>
     <string name="field_reminder">Remind me</string>
+    <string name="field_reminder_time">Reminder time</string>
     <string name="error_name_blank">Enter a name for this item.</string>
-    <string name="error_date_missing">Choose the expiry date.</string>
+    <string name="error_date_missing">Choose the use-by date.</string>
     <string name="edit_save_failed">Couldn\'t save this item. Please try again.</string>
     <string name="edit_load_failed">Couldn\'t load this item.</string>
     <string name="item_not_found">This item no longer exists.</string>
@@ -131,7 +153,18 @@
 
     <!-- Details -->
     <string name="details_title">Item details</string>
-    <string name="details_expiry_date">Expiry date</string>
+    <string name="details_use_by_date">Use-by date</string>
+    <string name="details_opened_on">Opened on</string>
+    <string name="details_use_within">Use within</string>
+    <string name="details_storage">Storage</string>
+    <plurals name="details_use_within_days">
+        <item quantity="one">%d day after opening</item>
+        <item quantity="other">%d days after opening</item>
+    </plurals>
+    <plurals name="details_use_within_months">
+        <item quantity="one">%d month after opening</item>
+        <item quantity="other">%d months after opening</item>
+    </plurals>
     <string name="details_reminder">Reminder</string>
     <string name="details_notes">Notes</string>
     <string name="details_no_notes">No notes</string>
@@ -147,21 +180,25 @@
     <string name="delete_failed">Couldn\'t delete this item. Please try again.</string>
 
     <!-- Notifications -->
-    <string name="channel_name">Expiry reminders</string>
-    <string name="channel_description">Reminders before your saved items expire</string>
-    <string name="notif_explain_title">Get expiry reminders</string>
-    <string name="notif_explain_body">Allow notifications so we can remind you before items expire. The app works fully without them.</string>
+    <string name="channel_name">Use-by reminders</string>
+    <string name="channel_description">Reminders to use your saved items in time</string>
+    <string name="notif_explain_title">Get use-by reminders</string>
+    <string name="notif_explain_body">Allow notifications so we can remind you when it\'s time to use your items. The app works fully without them.</string>
     <string name="notif_explain_continue">Allow notifications</string>
     <string name="notif_explain_skip">Not now</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_notifications_title">Notifications</string>
-    <string name="settings_notifications_on">Get reminders before items expire.</string>
+    <string name="settings_notifications_on">Get reminders before your items are due.</string>
     <string name="settings_notifications_off">Off. You won\'t get reminders, but everything else works.</string>
     <string name="settings_notifications_blocked">Blocked. Turn them on in system settings.</string>
-    <string name="settings_default_reminder">Default reminder</string>
-    <string name="settings_reminder_time">Reminders arrive at %1$s on the day you choose.</string>
+    <string name="settings_prefs_title">Notification preferences</string>
+    <string name="settings_default_reminder">Default advance notice</string>
+    <string name="settings_default_time">Default notification time</string>
+    <string name="settings_time_dialog_title">Default notification time</string>
+    <string name="settings_prefs_summary">New items are set to %1$s at %2$s. You can change this for any item. Reminders are sent once, and Android may deliver them a little late to save battery.</string>
+    <string name="settings_prefs_summary_none">New items start with no reminder. You can add one to any item. Reminders are sent once, and Android may deliver them a little late to save battery.</string>
     <string name="settings_about_title">About</string>
     <string name="settings_version">Version %1$s</string>
     <string name="settings_privacy_title">Data &amp; privacy</string>
@@ -177,7 +214,7 @@
     <string name="onboarding_1_title">Track your everyday items</string>
     <string name="onboarding_1_body">Keep a simple list of food, medicine, cosmetics and more.</string>
     <string name="onboarding_2_title">Get timely reminders</string>
-    <string name="onboarding_2_body">Never miss an expiry date with simple, helpful alerts.</string>
+    <string name="onboarding_2_body">Never miss a use-by date with simple, helpful alerts.</string>
     <string name="onboarding_3_title">Use it before it goes to waste</string>
     <string name="onboarding_3_body">Plan better, save more and waste less.</string>
 </resources>

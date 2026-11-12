@@ -34,6 +34,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -68,6 +71,8 @@ import com.expirybuddy.app.ui.components.ScreenScaffold
 import com.expirybuddy.app.ui.components.SecondaryButton
 import com.expirybuddy.app.ui.theme.Spacing
 import com.expirybuddy.app.ui.util.reminderLabel
+import com.expirybuddy.app.ui.util.formatMinuteOfDay
+import com.expirybuddy.app.ui.components.ReminderTimePickerDialog
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -98,11 +103,9 @@ fun SettingsScreen(
         if (!granted) requestDeclined = true
     }
 
-    val reminderTime = remember {
-        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-            .withLocale(Locale.getDefault())
-            .format(ReminderCalculator.REMINDER_TIME)
-    }
+    val defaultMinutes by viewModel.defaultReminderMinutes.collectAsStateWithLifecycle()
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    val timeText = formatMinuteOfDay(defaultMinutes)
 
     ScreenScaffold(
         title = stringResource(R.string.settings_title),
@@ -129,6 +132,11 @@ fun SettingsScreen(
                 .padding(horizontal = Spacing.page, vertical = Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         ) {
+            Text(
+                text = stringResource(R.string.settings_prefs_title),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() },
+            )
             SettingsCard {
                 // Never shows "on" unless the system really allows notifications.
                 NotificationRow(
@@ -151,9 +159,21 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 DefaultReminderRow(selected = defaultReminder, onSelected = viewModel::onDefaultReminderChange)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsRow(
+                    icon = Icons.Outlined.Notifications,
+                    title = stringResource(R.string.settings_default_time),
+                    subtitle = timeText,
+                    onClick = { showTimePicker = true },
+                    trailing = { Chevron() },
+                )
             }
             Text(
-                text = stringResource(R.string.settings_reminder_time, reminderTime),
+                text = if (defaultReminder == null) {
+                    stringResource(R.string.settings_prefs_summary_none)
+                } else {
+                    stringResource(R.string.settings_prefs_summary, reminderLabel(defaultReminder), timeText)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = Spacing.xs),
@@ -182,6 +202,18 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    if (showTimePicker) {
+        ReminderTimePickerDialog(
+            title = stringResource(R.string.settings_time_dialog_title),
+            initialMinuteOfDay = defaultMinutes,
+            onConfirm = {
+                showTimePicker = false
+                viewModel.onDefaultTimeChange(it)
+            },
+            onDismiss = { showTimePicker = false },
+        )
     }
 
     if (showPrivacy) {
@@ -270,6 +302,17 @@ private fun NotificationRow(enabled: Boolean, subtitle: String, onToggle: () -> 
 @Composable
 private fun DefaultReminderRow(selected: Int?, onSelected: (Int?) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var showCustom by rememberSaveable { mutableStateOf(false) }
+    if (showCustom) {
+        CustomDaysDialog(
+            initial = selected?.takeIf { !ReminderOptions.isPreset(it) },
+            onConfirm = {
+                showCustom = false
+                onSelected(it)
+            },
+            onDismiss = { showCustom = false },
+        )
+    }
     Box {
         SettingsRow(
             icon = Icons.Outlined.DateRange,
@@ -283,7 +326,7 @@ private fun DefaultReminderRow(selected: Int?, onSelected: (Int?) -> Unit) {
             onDismissRequest = { expanded = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         ) {
-            ReminderOptions.ALL.forEach { option ->
+            ReminderOptions.PRESETS.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(reminderLabel(option)) },
                     trailingIcon = {
@@ -298,8 +341,52 @@ private fun DefaultReminderRow(selected: Int?, onSelected: (Int?) -> Unit) {
                     modifier = Modifier.heightIn(min = Spacing.touchTarget),
                 )
             }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.reminder_custom)) },
+                trailingIcon = {
+                    if (!ReminderOptions.isPreset(selected)) {
+                        Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                onClick = {
+                    expanded = false
+                    showCustom = true
+                },
+                modifier = Modifier.heightIn(min = Spacing.touchTarget),
+            )
         }
     }
+}
+
+/** Asks for a custom number of days (1 to 365) for the default advance notice. */
+@Composable
+private fun CustomDaysDialog(initial: Int?, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+    var text by rememberSaveable { mutableStateOf(initial?.toString().orEmpty()) }
+    val value = text.toIntOrNull()
+    val valid = ReminderOptions.isValidCustom(value)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.reminder_custom_days_label)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it.filter(Char::isDigit).take(3) },
+                singleLine = true,
+                isError = text.isNotEmpty() && !valid,
+                supportingText = { if (text.isNotEmpty() && !valid) Text(stringResource(R.string.error_custom_days)) },
+                placeholder = { Text(stringResource(R.string.reminder_custom_days_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        },
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { onConfirm(checkNotNull(value)) }) {
+                Text(stringResource(R.string.action_ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 private fun openNotificationSettings(context: Context) {

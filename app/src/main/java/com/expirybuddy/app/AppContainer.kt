@@ -10,6 +10,7 @@ import com.expirybuddy.app.data.prefs.UserPreferences
 import com.expirybuddy.app.data.repository.ExpiryItemRepository
 import com.expirybuddy.app.data.repository.ReminderSyncingRepository
 import com.expirybuddy.app.data.repository.RoomExpiryItemRepository
+import com.expirybuddy.app.domain.reminder.ReminderCalculator
 import com.expirybuddy.app.reminders.NotificationPrefs
 import com.expirybuddy.app.reminders.ReminderScheduler
 import com.expirybuddy.app.reminders.WorkManagerReminderScheduler
@@ -28,7 +29,9 @@ class AppContainer(context: Context) {
     val clock: Clock = Clock.systemDefaultZone()
 
     val reminderScheduler: ReminderScheduler by lazy {
-        WorkManagerReminderScheduler(WorkManager.getInstance(appContext), clock)
+        WorkManagerReminderScheduler(WorkManager.getInstance(appContext), clock) {
+            ReminderCalculator.timeOfMinutes(userPreferences.defaultReminderMinutes)
+        }
     }
 
     /** Saves and deletes also keep reminders in sync (see [ReminderSyncingRepository]). */

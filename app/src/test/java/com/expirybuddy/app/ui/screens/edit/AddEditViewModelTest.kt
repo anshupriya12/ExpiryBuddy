@@ -1,5 +1,8 @@
 package com.expirybuddy.app.ui.screens.edit
 
+import com.expirybuddy.app.domain.validation.UseWithinError
+import com.expirybuddy.app.domain.validation.CustomReminderError
+import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import androidx.lifecycle.SavedStateHandle
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
@@ -56,7 +59,7 @@ class AddEditViewModelTest {
         assertFalse(state.isEditing)
         assertFalse(state.isLoading)
         assertEquals("", state.name)
-        assertNull(state.expiryDate)
+        assertNull(state.useByDate)
         assertEquals(3, state.reminderDaysBefore)
     }
 
@@ -64,7 +67,7 @@ class AddEditViewModelTest {
     fun save_withBlankName_showsErrorAndSavesNothing() {
         val vm = newViewModel()
         vm.onNameChange("   ")
-        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
 
         vm.onSave()
 
@@ -94,7 +97,7 @@ class AddEditViewModelTest {
         assertNull(vm.uiState.value.nameError)
         assertEquals(DateError.MISSING, vm.uiState.value.dateError)
 
-        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
         assertNull(vm.uiState.value.dateError)
     }
 
@@ -103,7 +106,7 @@ class AddEditViewModelTest {
         val vm = newViewModel()
         vm.onNameChange("  Milk  ")
         vm.onCategoryChange(ItemCategory.FOOD)
-        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
         vm.onNotesChange("   ")
         vm.onReminderChange(null)
 
@@ -138,7 +141,7 @@ class AddEditViewModelTest {
         assertFalse(state.isLoading)
         assertEquals("Aspirin", state.name)
         assertEquals(ItemCategory.MEDICATION, state.category)
-        assertEquals(LocalDate.of(2026, 9, 1), state.expiryDate)
+        assertEquals(LocalDate.of(2026, 9, 1), state.useByDate)
         assertEquals("Cabinet", state.notes)
         assertEquals(7, state.reminderDaysBefore)
     }
@@ -180,7 +183,7 @@ class AddEditViewModelTest {
 
     private fun filledViewModel(reminder: Int?): AddEditViewModel = newViewModel().also {
         it.onNameChange("Milk")
-        it.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        it.onUseByDateChange(LocalDate.of(2026, 5, 1))
         it.onReminderChange(reminder)
     }
 
@@ -333,7 +336,7 @@ class AddEditViewModelTest {
     fun savingKeepsThePhoto_onTheItem() {
         val vm = newViewModel()
         vm.onNameChange("Milk")
-        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
         vm.onPhotoPicked("content://gallery/1")
 
         vm.onSave()
@@ -356,7 +359,7 @@ class AddEditViewModelTest {
     fun leavingAfterSaving_keepsThePhoto() {
         val vm = newViewModel()
         vm.onNameChange("Milk")
-        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
         vm.onPhotoPicked("content://gallery/1")
         vm.onSave()
 
@@ -453,7 +456,7 @@ class AddEditViewModelTest {
         repository.failSave = true
         val vm = newViewModel()
         vm.onNameChange("Milk")
-        vm.onExpiryDateChange(LocalDate.of(2026, 5, 1))
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
 
         vm.onSave()
 
@@ -465,5 +468,210 @@ class AddEditViewModelTest {
         vm.onSave()
         assertFalse(vm.uiState.value.saveFailed)
         assertTrue(vm.uiState.value.saved)
+    }
+
+    // --- V2.2: use-by calculation, reminder preferences ---------------------------------------
+
+    @Test
+    fun openedOnPlusUseWithin_fillsTheUseByDateImmediately() {
+        val vm = newViewModel()
+
+        vm.onOpenedOnChange(LocalDate.of(2026, 11, 12))
+        assertNull("nothing to calculate yet", vm.uiState.value.useByDate)
+        vm.onUseWithinChange("2")
+
+        val state = vm.uiState.value
+        assertEquals(LocalDate.of(2026, 11, 14), state.useByDate)
+        assertTrue(state.useByCalculated)
+    }
+
+    @Test
+    fun changingTheUnit_orTheOpeningDate_recalculates() {
+        val vm = newViewModel()
+        vm.onOpenedOnChange(LocalDate.of(2026, 11, 12))
+        vm.onUseWithinChange("2")
+
+        vm.onUseWithinUnitChange(UseWithinUnit.MONTHS)
+        assertEquals(LocalDate.of(2027, 1, 12), vm.uiState.value.useByDate)
+
+        vm.onOpenedOnChange(LocalDate.of(2026, 11, 20))
+        assertEquals(LocalDate.of(2027, 1, 20), vm.uiState.value.useByDate)
+    }
+
+    @Test
+    fun manuallyEditingTheCalculatedDate_isKept_untilTheOpeningDetailsChangeAgain() {
+        val vm = newViewModel()
+        vm.onOpenedOnChange(LocalDate.of(2026, 11, 12))
+        vm.onUseWithinChange("2")
+
+        vm.onUseByDateChange(LocalDate.of(2026, 11, 20))
+        assertEquals(LocalDate.of(2026, 11, 20), vm.uiState.value.useByDate)
+        assertFalse(vm.uiState.value.useByCalculated)
+
+        vm.onUseWithinChange("3")
+        assertEquals(LocalDate.of(2026, 11, 15), vm.uiState.value.useByDate)
+    }
+
+    @Test
+    fun aDirectUseByDate_needsNoOpeningInformation() {
+        val vm = newViewModel()
+        vm.onNameChange("Rice")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+
+        vm.onSave()
+
+        val saved = repository.saved.single()
+        assertEquals(LocalDate.of(2026, 12, 1), saved.expiryDate)
+        assertNull(saved.openedOn)
+        assertNull(saved.useWithinAmount)
+        assertNull(saved.storageInstructions)
+        assertNull(saved.reminderMinuteOfDay)
+    }
+
+    @Test
+    fun invalidUseWithin_isReportedAndBlocksSave_withoutOverwritingTheDate() {
+        val vm = newViewModel()
+        vm.onNameChange("Juice")
+        vm.onUseByDateChange(LocalDate.of(2026, 12, 1))
+        vm.onOpenedOnChange(LocalDate.of(2026, 11, 12))
+        vm.onUseWithinChange("0")
+
+        assertEquals(LocalDate.of(2026, 12, 1), vm.uiState.value.useByDate)
+        vm.onSave()
+
+        assertEquals(UseWithinError.INVALID, vm.uiState.value.useWithinError)
+        assertTrue(repository.saved.isEmpty())
+    }
+
+    @Test
+    fun openingDetailsAndStorage_areSavedAndLoadedBack() {
+        val vm = newViewModel()
+        vm.onNameChange("Juice")
+        vm.onOpenedOnChange(LocalDate.of(2026, 11, 12))
+        vm.onUseWithinChange("3")
+        vm.onUseWithinUnitChange(UseWithinUnit.DAYS)
+        vm.onStorageChange("  Keep refrigerated ")
+        vm.onSave()
+
+        val saved = repository.saved.single()
+        assertEquals(LocalDate.of(2026, 11, 15), saved.expiryDate)
+        assertEquals(LocalDate.of(2026, 11, 12), saved.openedOn)
+        assertEquals(3, saved.useWithinAmount)
+        assertEquals(UseWithinUnit.DAYS, saved.useWithinUnit)
+        assertEquals("Keep refrigerated", saved.storageInstructions)
+
+        val edit = newViewModel(itemId = saved.id).uiState.value
+        assertEquals(LocalDate.of(2026, 11, 12), edit.openedOn)
+        assertEquals("3", edit.useWithinText)
+        assertEquals("Keep refrigerated", edit.storageInstructions)
+    }
+
+    @Test
+    fun newItem_inheritsTheDefaultNoticeAndTime_andSavesNoItemTimeUnlessChosen() {
+        preferences.defaultReminderDays = 2
+        preferences.defaultReminderMinutes = 8 * 60
+        val vm = newViewModel()
+        vm.onNameChange("Milk")
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
+
+        assertEquals(2, vm.uiState.value.reminderDaysBefore)
+        assertEquals(8 * 60, vm.uiState.value.defaultReminderMinutes)
+        assertNull(vm.uiState.value.reminderMinuteOfDay)
+        vm.onSave()
+
+        assertEquals(2, repository.saved.single().reminderDaysBefore)
+        assertNull("follows the default time", repository.saved.single().reminderMinuteOfDay)
+    }
+
+    @Test
+    fun perItemOverride_ofNoticeAndTime_isSavedAndPreservedWhenEditing() {
+        val vm = newViewModel()
+        vm.onNameChange("Paneer")
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
+        vm.onReminderChange(0)
+        vm.onReminderTimeChange(19 * 60)
+        vm.onSave()
+
+        val saved = repository.saved.single()
+        assertEquals(0, saved.reminderDaysBefore)
+        assertEquals(19 * 60, saved.reminderMinuteOfDay)
+
+        // Changing the global defaults later does not disturb the item's own choices.
+        preferences.defaultReminderDays = 3
+        preferences.defaultReminderMinutes = 7 * 60
+        val edit = newViewModel(itemId = saved.id)
+        assertEquals(0, edit.uiState.value.reminderDaysBefore)
+        assertEquals(19 * 60, edit.uiState.value.reminderMinuteOfDay)
+        edit.onNameChange("Paneer (fresh)")
+        edit.onSave()
+        assertEquals(0, repository.saved.single().reminderDaysBefore)
+        assertEquals(19 * 60, repository.saved.single().reminderMinuteOfDay)
+    }
+
+    @Test
+    fun resettingTheItemTime_goesBackToTheDefault() {
+        val vm = newViewModel()
+        vm.onNameChange("Milk")
+        vm.onUseByDateChange(LocalDate.of(2026, 5, 1))
+        vm.onReminderTimeChange(19 * 60)
+        vm.onReminderTimeChange(null)
+        vm.onSave()
+
+        assertNull(repository.saved.single().reminderMinuteOfDay)
+    }
+
+    @Test
+    fun customAdvanceNotice_isSavedAsTheTypedNumberOfDays_andReloadedAsCustom() {
+        val vm = newViewModel()
+        vm.onNameChange("Vitamins")
+        vm.onUseByDateChange(LocalDate.of(2026, 9, 1))
+        vm.onCustomReminderSelected()
+        vm.onCustomReminderTextChange("10")
+        vm.onSave()
+
+        assertEquals(10, repository.saved.single().reminderDaysBefore)
+        val edit = newViewModel(itemId = repository.saved.single().id).uiState.value
+        assertTrue(edit.reminderIsCustom)
+        assertEquals("10", edit.customReminderText)
+    }
+
+    @Test
+    fun customAdvanceNotice_invalidOrEmpty_blocksSave() {
+        val vm = newViewModel()
+        vm.onNameChange("Vitamins")
+        vm.onUseByDateChange(LocalDate.of(2026, 9, 1))
+        vm.onCustomReminderSelected()
+        vm.onSave()
+
+        assertEquals(CustomReminderError.INVALID, vm.uiState.value.customReminderError)
+        assertTrue(repository.saved.isEmpty())
+
+        vm.onCustomReminderTextChange("400")
+        vm.onSave()
+        assertEquals(CustomReminderError.INVALID, vm.uiState.value.customReminderError)
+    }
+
+    @Test
+    fun choosingAPresetAfterCustom_leavesCustomMode() {
+        val vm = newViewModel()
+        vm.onCustomReminderSelected()
+        vm.onReminderChange(1)
+
+        assertFalse(vm.uiState.value.reminderIsCustom)
+        assertEquals(1, vm.uiState.value.reminderDaysBefore)
+    }
+
+    @Test
+    fun anOldItemWithAnUncommonNotice_opensAsCustom() {
+        repository.saved.size // touch
+        val old = existingItem()
+        val repo = FakeExpiryItemRepository(listOf(old))
+        val vm = AddEditViewModel(
+            SavedStateHandle(mapOf(Destinations.ITEM_ID_ARG to old.id)), repo, clock, photos, preferences,
+        )
+
+        // The V2 item had "7 days before", which is no longer a preset.
+        assertTrue(vm.uiState.value.reminderIsCustom)
+        assertEquals("7", vm.uiState.value.customReminderText)
     }
 }

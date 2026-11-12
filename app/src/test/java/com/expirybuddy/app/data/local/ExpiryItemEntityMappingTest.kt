@@ -1,5 +1,6 @@
 package com.expirybuddy.app.data.local
 
+import com.expirybuddy.app.domain.expiry.UseWithinUnit
 import com.expirybuddy.app.domain.model.ExpiryItem
 import com.expirybuddy.app.domain.model.ItemCategory
 import org.junit.Assert.assertEquals
@@ -78,5 +79,31 @@ class ExpiryItemEntityMappingTest {
     @Test
     fun categoryKeys_areUnique() {
         assertEquals(ItemCategory.entries.size, ItemCategory.entries.map { it.storageKey }.toSet().size)
+    }
+
+    @Test
+    fun v22Fields_openingDetailsStorageAndReminderTime_surviveMapping() {
+        val v22 = item.copy(
+            openedOn = LocalDate.of(2026, 11, 12),
+            useWithinAmount = 2,
+            useWithinUnit = UseWithinUnit.MONTHS,
+            storageInstructions = "Keep refrigerated",
+            reminderMinuteOfDay = 19 * 60 + 30,
+        )
+        val entity = v22.toEntity()
+        assertEquals(LocalDate.of(2026, 11, 12), entity.openedOn)
+        assertEquals(2, entity.useWithinAmount)
+        assertEquals("months", entity.useWithinUnit)
+        assertEquals(19 * 60 + 30, entity.reminderMinuteOfDay)
+        assertEquals(v22, entity.toDomain())
+    }
+
+    @Test
+    fun anItemWithoutADuration_storesNoUnit_andReadsBackAsDays() {
+        val entity = item.toEntity()
+        assertNull(entity.useWithinUnit)
+        assertNull(entity.openedOn)
+        assertNull(entity.reminderMinuteOfDay)
+        assertEquals(item, entity.toDomain())
     }
 }
